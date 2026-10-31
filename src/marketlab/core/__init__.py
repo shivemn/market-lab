@@ -1,8 +1,10 @@
 """The exchange core: pure logic, no input or output, no clock of its own."""
 
+from marketlab.core.auction import AuctionOutcome, compute_auction
 from marketlab.core.book import LevelView, OrderBook
 from marketlab.core.commands import CancelOrder, Command, ModifyOrder, NewOrder
 from marketlab.core.events import (
+    AuctionResult,
     CancelReason,
     Event,
     OrderAccepted,
@@ -26,6 +28,8 @@ from marketlab.core.types import (
 from marketlab.core.validation import validate_order
 
 __all__ = [
+    "AuctionOutcome",
+    "AuctionResult",
     "CancelOrder",
     "CancelReason",
     "Command",
@@ -49,5 +53,6 @@ __all__ = [
     "Side",
     "TimeInForce",
     "Trade",
+    "compute_auction",
     "validate_order",
 ]

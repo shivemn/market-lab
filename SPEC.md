@@ -87,8 +87,17 @@ All orders collected in PRE_OPEN are matched at a single price.
 2. The **equilibrium price** is the one with the **maximum executable volume**.
 3. Ties, in order: smallest unmatched quantity (imbalance), then the price **closest to the reference price**, then the lower price.
 4. All executable orders trade at the equilibrium price. Within a side, better-priced and earlier orders fill first.
-5. Orders not fully filled move onto the continuous book (DAY limit orders) or are cancelled (market orders).
-6. If no prices cross, there is no opening trade, the opening price is the reference price, and all limit orders move to the book.
+5. Orders not fully filled move onto the continuous book (DAY limit orders) or are cancelled (market orders and IOC orders).
+6. If no prices cross, there is no opening trade, the opening price is the reference price, and all DAY limit orders move to the book.
+
+How it is implemented (Week 3):
+- Market orders wait in a separate list during PRE_OPEN, because they cannot rest on the book. Limit orders rest on the book, which may overlap until the auction runs.
+- Priority on each side: market orders first (in arrival order), then limit orders from the best price down, and within one price the earliest first.
+- Only a few prices need to be tried: every limit price, the tick either side of it, and the reference price. Between two limit prices, every price gives identical totals, so these cover every case. A randomised test compares this shortcut with a brute-force search over every tick in the band.
+- Rule 3's final tie-break (the lower price) can never actually decide anything. The set of best prices after the first two rules is one unbroken run of ticks, so the one nearest the reference price is unique. The rule is kept so the result is always fully determined.
+- After the auction the book is never crossed. This follows from the rules, and the exchange checks it every time.
+- Events come in this order: `AuctionResult`, the `Trade` events (price is the auction price, there is no aggressor), cancellations of unfilled market and IOC orders, then `SessionChanged(OPEN)`.
+- Opening straight from CLOSED to OPEN is still allowed and skips the auction.
 
 Both the tie-break order and the single-price rule come from how real call auctions work, but we document our version precisely and test it against hand-calculated examples. We do not claim it equals NSE's implementation.
 
@@ -109,14 +118,17 @@ Every state change is one event. The engine does not mutate anything without wri
 | `payload` | event-specific fields |
 
 ### Event types in Phase 1
-`INSTRUMENT_LISTED`, `SESSION_CHANGED`, `ORDER_ACCEPTED`, `ORDER_REJECTED`, `ORDER_CANCELLED`, `ORDER_MODIFIED`, `ORDER_EXPIRED`, `TRADE`, `AUCTION_RESULT`.
+`SessionChanged`, `OrderAccepted`, `OrderRejected`, `OrderCancelled`, `OrderModified`, `OrderExpired`, `Trade`, `AuctionResult`. (The instrument's rules are in the log header, so there is no separate listing event.)
 
 ### Reserved for later phases
 `NEWS_EVENT` (Phase 3), `STRATEGY_DECISION` (Phase 2). The log schema and the reader ignore unknown types safely, so adding them later does not break old logs.
 
-### Storage and verification
-- Written as JSON Lines during a run, converted to Parquet for analysis (DuckDB can query it directly).
-- **Replay check:** a run ends by writing a SHA-256 hash over the canonical bytes of all events. Replaying the same inputs must give the same hash. This is a test, run in CI.
+### Storage and verification (built in Week 4)
+- **File format:** JSON Lines, always written with plain `\n` line endings. Line 1 is a header (format name, version, the instrument's rules, and for simulated runs the settings including the seed). Then one event per line in canonical form (keys sorted, no spaces). The last line is a footer with the event count and a SHA-256 fingerprint over the event lines.
+- **Reading checks everything:** header, footer, gapless `seq` from 1, count and fingerprint. A file that was edited, cut short, or had events removed or swapped is refused with a plain error.
+- **Replay has two meanings here.** (1) *Fold*: `MarketState` rebuilds the market (book, last price, volume) from events alone, and a property test checks it equals the live exchange after every random command. (2) *Re-run*: `marketlab replay` re-runs a simulated log from the settings in its header and checks the fingerprint matches. Events do not record rejected orders' details, so a log cannot be re-executed command by command; the seed is what makes a day reproducible.
+- **Known limits:** the header is not covered by the fingerprint (changing the seed in the header is caught by `replay`, but changing, say, the tick size in a header with no re-run is not); same seed gives the same day on one machine and Python, and in practice everywhere, but cross-platform float equality is not guaranteed (see `sim/rng.py`), so the pinned golden fingerprint covers only an integer-only scripted day.
+- **Parquet export** (for DuckDB) is postponed to Phase 2, when there is something to analyse.
 
 ## 6. The simulator (the fake traders)
 
@@ -172,14 +184,16 @@ Phase 1 checks that the market looks plausible, not that it is realistic: spread
 market-lab/
   src/marketlab/
     core/        order book, matching, auction, validation (no I/O)
-    events.py    event types, canonical encoding, hashing
-    sim/         agents, random processes, scenario config
-    log/         JSONL writer and reader, Parquet export
-    api/         FastAPI app and WebSocket
-    cli.py
+    codec.py     event <-> canonical JSON line, fingerprint
+    log.py       log file writer and reader (header, events, footer)
+    projection.py  rebuild the market from events (what a screen uses)
+    describe.py  plain-language one-line event descriptions
+    sim/         rng, price process, traders, the simulation loop
+    api/         FastAPI app and WebSocket (Week 5)
+    cli.py       run, show, replay
   web/           dashboard (small, later)
   tests/
-    unit/  property/  replay/
+    unit/  property/
   docs/          design notes, diagrams
   SPEC.md  README.md  pyproject.toml
 ```
@@ -193,7 +207,7 @@ Tooling: `uv` or `pip`, `pytest`, `hypothesis`, `ruff`, `mypy`, GitHub Actions.
 | 1 | Types, validation, order book data structure, cancel, unit tests | Order book design, why integers |
 | 2 | Continuous matching, IOC, market orders, modify, property tests | Price-time priority, invariants |
 | 3 | Sessions, bands, pre-open auction with tests | Call auctions, tie-breaks |
-| 4 | Event log, replay, hash check, seeded simulator agents | Event sourcing, stochastic processes |
+| 4 | Event log, replay, hash check, seeded simulator agents (done) | Event sourcing, stochastic processes |
 | 5 | CLI, API, WebSocket, first dashboard | Streaming, state snapshots |
 | 6 | README, benchmark, diagrams, clean-up | Writing the story, measuring honestly |
 

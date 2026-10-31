@@ -22,6 +22,7 @@ from hypothesis import settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 
+from marketlab.codec import decode_event, encode_event
 from marketlab.core import (
     CancelOrder,
     Event,
@@ -34,6 +35,7 @@ from marketlab.core import (
     TimeInForce,
     Trade,
 )
+from marketlab.projection import MarketState
 from tests.helpers import DEMO, limit, market
 
 PRICES = [250_000 + 5 * step for step in range(-3, 4)]  # seven nearby price levels
@@ -143,6 +145,8 @@ class ExchangeMachine(RuleBasedStateMachine):
         super().__init__()
         self.ex = Exchange(DEMO)
         self.all_events: list[Event] = list(self.ex.set_session(Session.OPEN, 0))
+        self.state = MarketState(DEMO)  # rebuilt from events alone
+        self.state.apply_all(self.all_events)
         self.ref = Reference()
         self.clock = 0
         self.next_id = 1
@@ -152,6 +156,9 @@ class ExchangeMachine(RuleBasedStateMachine):
         self.clock += 1
         events = self.ex.submit(command, self.clock)
         self.all_events.extend(events)
+        self.state.apply_all(events)
+        for event in events:
+            assert decode_event(encode_event(event)) == event  # the log format loses nothing
         for trade in (e for e in events if isinstance(e, Trade)):
             for oid in (trade.buy_order_id, trade.sell_order_id):
                 self.filled[oid] = self.filled.get(oid, 0) + trade.quantity
@@ -228,6 +235,14 @@ class ExchangeMachine(RuleBasedStateMachine):
                     (o.order_id, o.remaining) for o in queue
                 ]
         assert len(self.ex.book) == len(self.ref.resting)
+
+        # The market rebuilt from events alone matches the live book: same levels, same queues, same sizes.
+        for side in (Side.BUY, Side.SELL):
+            assert self.state.depth(side) == self.ex.book.depth(side)
+            for view in self.ex.book.depth(side):
+                assert self.state.queue(side, view.price) == [
+                    (o.order_id, o.remaining) for o in self.ex.book.orders_at(side, view.price)
+                ]
 
         # Shares are conserved: traded + still resting = the order's current size.
         for resting in self.ref.resting:

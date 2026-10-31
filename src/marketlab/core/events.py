@@ -79,4 +79,15 @@ class Trade(Event):
     sell_order_id: int
     buy_account_id: str
     sell_account_id: str
-    aggressor_side: Side  # the side of the order that arrived and caused the trade
+    aggressor_side: Side | None  # the side of the order that arrived and caused the trade; None in an auction
+
+
+@dataclass(frozen=True, slots=True)
+class AuctionResult(Event):
+    """The outcome of the opening auction. Comes first, then the trades it caused."""
+
+    price: int | None  # the equilibrium price, or None when nothing could trade
+    volume: int  # shares traded in the auction
+    opening_price: int  # the equilibrium price, or the reference price when nothing traded
+    unmatched_buy: int  # buy quantity willing to trade at that price that did not get filled
+    unmatched_sell: int  # the same for the sell side
