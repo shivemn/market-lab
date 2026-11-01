@@ -13,10 +13,12 @@ commands, not in the middle of one.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from marketlab.core import (
     AuctionResult,
+    CancelReason,
     Event,
     Instrument,
     LevelView,
@@ -32,6 +34,36 @@ from marketlab.core import (
     TimeInForce,
     Trade,
 )
+
+
+def command_ends(events: Sequence[Event]) -> list[int]:
+    """Where one command's events stop and the next command's begin.
+
+    Returns event counts: `[3, 5, 9]` means events 1-3 are one command, 4-5 the next, and so on. The market is
+    only a consistent picture at these points. In the middle of a command it can look odd (an order that is
+    about to be cancelled still on the book, or a crossed book), so a screen should step from one of these
+    points to the next, never to a position in between.
+
+    A command starts with an accepted, rejected, modified or user-cancelled order, an auction result, or a session
+    change. Trades, expiries and the cancellation of an order's unfilled part belong to the command before them.
+    The session change that ends an opening auction belongs to the auction.
+    """
+    ends: list[int] = []
+    first: Event | None = None
+    for index, event in enumerate(events):
+        starts = isinstance(event, (OrderAccepted, OrderRejected, OrderModified, AuctionResult, SessionChanged)) or (
+            isinstance(event, OrderCancelled) and event.reason is CancelReason.USER
+        )
+        ends_auction = (
+            isinstance(event, SessionChanged) and event.session is Session.OPEN and isinstance(first, AuctionResult)
+        )
+        if starts and not ends_auction:
+            if index > 0:
+                ends.append(index)
+            first = event
+    if events:
+        ends.append(len(events))
+    return ends
 
 
 @dataclass

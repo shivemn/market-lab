@@ -1,0 +1,160 @@
+:root {
+  --ground: #e6ecea;
+  --surface: #f8faf9;
+  --line: #c9d3cf;
+  --row-line: #e1e8e5;
+  --ink: #14231f;
+  --muted: #44554f;
+  --buy: #1f56c4;
+  --buy-soft: #dce6f8;
+  --sell: #e07a1f;
+  --sell-soft: #fbe5d0;
+  --sell-text: #8a4208;
+  --you: #f4c20d;
+  --shade: #dce3e0;
+  --trade-fill: #bfd8cc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+button, input, select { font: inherit; color: inherit; }
+h2 { margin: 0; font-size: 20px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+:focus-visible { outline: 3px solid var(--buy); outline-offset: 2px; }
+
+.app { max-width: 1400px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; }
+.brand { width: 220px; }
+.brand-name { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.quote { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; flex: 1 1 560px; }
+.symbol { font-size: 20px; font-weight: 700; }
+.price { font-size: 40px; font-weight: 700; margin-left: 12px; line-height: 1.1; }
+.change { font-size: 15px; }
+.identity { text-align: right; }
+.chip { height: 36px; padding: 0 14px; border-radius: 18px; background: var(--ink); color: var(--surface); display: flex; align-items: center; font-size: 14px; font-weight: 700; }
+.chip-pre_open { background: var(--you); color: var(--ink); }
+.chip-closed { background: var(--shade); color: var(--ink); }
+
+/* layout */
+.main { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+.side { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--surface); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+.card.grow { flex-grow: 1; }
+.lead { margin: 0; max-width: 640px; font-size: 15px; }
+
+/* queue */
+.row { display: grid; grid-template-columns: 1fr 132px 1fr; align-items: center; min-height: 42px; border-bottom: 1px solid var(--row-line); }
+.row.head { min-height: 0; padding: 8px 0 6px; border-bottom: 2px solid var(--ink); font-size: 15px; font-weight: 700; align-items: end; }
+.buyer-title { color: var(--buy); }
+.seller-title { color: var(--sell-text); text-align: right; }
+.pricecell { text-align: center; font-size: 16px; }
+.pricecell.strong { font-size: 18px; font-weight: 700; }
+.row.best-buy { background: var(--buy-soft); border-radius: 6px; border-bottom-color: transparent; }
+.row.best-sell { background: var(--sell-soft); border-radius: 6px; border-bottom-color: transparent; }
+.cell { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px; }
+.cell.left { justify-content: space-between; }
+.cell.right { justify-content: space-between; }
+.blocks { display: flex; gap: 2px; min-width: 0; }
+.blocks.reverse { flex-direction: row-reverse; }
+.block { height: 30px; padding: 0; border: 0; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 1; min-width: 6px; }
+.block.buy { background: var(--buy); color: #fff; }
+.block.sell { background: var(--sell); color: var(--ink); }
+.block.pinned { background: var(--you); color: var(--ink); outline: 2px solid var(--ink); outline-offset: -2px; }
+.block:hover { filter: brightness(1.12); }
+.ahead { font-size: 14px; font-weight: 700; white-space: nowrap; }
+.gap { min-height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); text-align: center; padding: 4px 0; }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+.note { margin: 0; }
+.queue .ladder { display: flex; flex-direction: column; }
+
+/* side column */
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.field input, .field select { height: 44px; border: 2px solid var(--line); border-radius: 8px; padding: 0 12px; font-size: 18px; background: #fff; color: var(--ink); min-width: 0; }
+.inline { display: flex; gap: 8px; }
+.inline input { flex: 1; }
+.error { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--sell-soft); color: var(--sell-text); font-size: 14px; }
+.happened { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.happened li { font-size: 15px; line-height: 1.4; color: var(--muted); }
+.happened li.newest { color: var(--ink); font-weight: 700; }
+
+/* buttons */
+.btn { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 2px solid var(--line); background: var(--surface); font-size: 15px; font-weight: 700; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--ink); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--buy); border-color: var(--buy); color: #fff; }
+.btn.big { min-height: 48px; font-size: 17px; }
+.round { width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--ink); color: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.round:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* price chart */
+.chart { gap: 10px; }
+.chart-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px; }
+.chart-head .lead { margin-top: 4px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.chartbox { position: relative; width: 100%; }
+.chartbox svg { display: block; }
+.slider { position: absolute; top: 0; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.chartbox:has(.slider:focus-visible) { outline: 3px solid var(--buy); outline-offset: 2px; border-radius: 4px; }
+.tick { font-size: 13px; fill: var(--muted); font-family: inherit; }
+.tick.strong { fill: var(--ink); font-weight: 700; }
+.tick.sell { fill: var(--sell-text); font-weight: 700; }
+.caption { margin: 0; font-size: 16px; }
+
+/* tabs and the auction screen */
+.tabs { display: flex; gap: 8px; }
+.tab { min-height: 44px; padding: 0 18px; border-radius: 22px; border: 2px solid var(--line); background: var(--surface); font-size: 16px; font-weight: 700; cursor: pointer; }
+.tab.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.auction { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.auction-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.big-title { font-size: 28px; line-height: 1.15; }
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 14px; font-size: 16px; line-height: 1.45; }
+.callout { margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--ground); font-size: 15px; }
+.legend { margin: 0; line-height: 1.8; }
+.swatch { display: inline-block; width: 22px; height: 10px; margin: 0 4px 0 10px; vertical-align: middle; border-radius: 2px; }
+.swatch:first-child { margin-left: 0; }
+.tick.big { font-size: 15px; }
+.tick.buy-text, .buy-text { fill: var(--buy); color: var(--buy); font-weight: 700; }
+.who { width: 100%; border-collapse: collapse; font-size: 15px; }
+.who th, .who td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--row-line); vertical-align: top; line-height: 1.35; }
+.who thead th { color: var(--muted); font-size: 14px; border-bottom: 2px solid var(--ink); }
+.who tbody th.sell { color: var(--sell-text); }
+
+/* how to read, and the footer */
+.howto { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 32px; padding: 0 4px; }
+.howto p { margin: 0; font-size: 15px; color: var(--muted); }
+.howto b { color: var(--ink); }
+.foot { display: flex; flex-direction: column; gap: 12px; }
+.foot p { margin: 0; }
+.picker summary { cursor: pointer; font-size: 18px; font-weight: 700; }
+.picker[open] { gap: 12px; }
+
+@media (max-width: 900px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .identity { text-align: left; }
+  .howto { grid-template-columns: minmax(0, 1fr); }
+  .auction { grid-template-columns: minmax(0, 1fr); }
+  .who thead { display: none; }
+  .who tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--row-line); }
+  .who th, .who td { display: block; border: 0; padding: 2px 0; }
+  .price { font-size: 34px; margin-left: 0; }
+  .card { padding: 16px; }
+  .row { grid-template-columns: 1fr 84px 1fr; }
+  .ahead { display: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .block { transition: filter 0.15s; }
+}

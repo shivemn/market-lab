@@ -191,7 +191,7 @@ market-lab/
     sim/         rng, price process, traders, the simulation loop
     api/         FastAPI app and WebSocket (Week 5)
     cli.py       run, show, replay
-  web/           dashboard (small, later)
+  web/           React dashboard (Vite, TypeScript)
   tests/
     unit/  property/
   docs/          design notes, diagrams
@@ -208,8 +208,8 @@ Tooling: `uv` or `pip`, `pytest`, `hypothesis`, `ruff`, `mypy`, GitHub Actions.
 | 2 | Continuous matching, IOC, market orders, modify, property tests | Price-time priority, invariants |
 | 3 | Sessions, bands, pre-open auction with tests | Call auctions, tie-breaks |
 | 4 | Event log, replay, hash check, seeded simulator agents (done) | Event sourcing, stochastic processes |
-| 5 | CLI, API, WebSocket, first dashboard | Streaming, state snapshots |
-| 6 | README, benchmark, diagrams, clean-up | Writing the story, measuring honestly |
+| 5 | CLI, API, WebSocket, first dashboard (done) | Streaming, state snapshots |
+| 6 | Opening-auction screen, benchmark, diagrams, README (done) | Writing the story, measuring honestly |
 
 If a week slips, nothing breaks. Each week ends with a working, tested state.
 
@@ -274,8 +274,12 @@ and the backtester are finished.
 
 1. **Session model:** simplified as written in section 3, and documented as a simplification in the README.
 2. **Order types:** LIMIT and MARKET, DAY and IOC, cancel and modify. No stop orders in Phase 1.
-3. **Dashboard:** plain JavaScript first (Week 5). A React version can come in Phase 4 when there are real screens.
+3. **Dashboard:** React and TypeScript (Week 5), built from the design mock-up. The browser folds the same events into the same market picture as `MarketState`; a shared fixture (`tests/export_fixture.py`) checks the two agree.
 4. **Repository:** private until Weeks 1 and 2 are reviewed, then made public with the README status table.
 5. **Python:** 3.11 or newer. CI tests 3.11, 3.12 and 3.13.
 6. **Week 1 delivered:** types, validation, order book with cancel and reduce, 42 tests (unit tests with
    hand-calculated numbers, plus a randomised test that compares the book with a simple reference model).
+7. **Week 6 delivered:** the dashboard's "opening auction" screen (it recomputes the auction price from the orders in
+   TypeScript and a test checks it against the exchange's own answer on 40 simulated mornings), a benchmark
+   (`python -m benchmarks.bench_exchange`, results in `docs/benchmark-results.md`), architecture diagrams
+   (`docs/architecture.md`), screenshots, and the portfolio README. Phase 1 is complete.

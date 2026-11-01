@@ -25,6 +25,27 @@ def test_run_show_and_replay(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert "reproduced exactly" in capsys.readouterr().out
 
 
+def test_show_stops_at_the_end_of_a_command_not_in_the_middle(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from marketlab.log import read_log
+    from marketlab.projection import command_ends
+
+    log = tmp_path / "day.jsonl"
+    main([*RUN, "--out", str(log)])
+    capsys.readouterr()
+    events = read_log(log).events
+    ends = set(command_ends(events))
+    middle = next(n for n in range(50, len(events)) if n not in ends)
+    assert main(["show", str(log), "--until", str(middle)]) == 0
+    out = capsys.readouterr().out
+    assert f"you asked for {middle}" in out
+    shown = int(out.split("showing the market after ")[1].split(" events")[0])
+    assert shown in ends and shown < middle
+    assert main(["show", str(log), "--until", str(shown)]) == 0
+    assert "you asked for" not in capsys.readouterr().out
+
+
 def test_the_same_seed_writes_byte_identical_files(tmp_path: Path) -> None:
     first, second = tmp_path / "a.jsonl", tmp_path / "b.jsonl"
     assert main([*RUN, "--out", str(first)]) == 0

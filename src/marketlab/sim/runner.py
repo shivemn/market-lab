@@ -69,6 +69,7 @@ class SimulationResult:
     instrument: Instrument
     events: list[Event]
     sha256: str
+    ends: list[int]  # event counts at which a command finishes (see projection.command_ends)
     exchange: Exchange  # the live exchange at the end, kept for checks
     state: MarketState  # the market rebuilt from the events alone
 
@@ -96,9 +97,13 @@ def run_simulation(config: SimConfig) -> SimulationResult:
         next_order_id += 1
         return next_order_id
 
+    ends: list[int] = []
+
     def record(new: list[Event]) -> None:
         events.extend(new)
         state.apply_all(new)
+        if new:
+            ends.append(len(events))
 
     open_at = config.pre_open_seconds * MICROS
     close_at = open_at + config.open_seconds * MICROS
@@ -136,4 +141,4 @@ def run_simulation(config: SimConfig) -> SimulationResult:
     if config.close_market:
         record(exchange.set_session(Session.CLOSED, close_at))
 
-    return SimulationResult(config, instrument, events, hash_events(events), exchange, state)
+    return SimulationResult(config, instrument, events, hash_events(events), ends, exchange, state)

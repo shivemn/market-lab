@@ -3,6 +3,7 @@
     marketlab run --seed 7 --out runs/demo.jsonl
     marketlab show runs/demo.jsonl --until 500 --events 10
     marketlab replay runs/demo.jsonl
+    marketlab serve
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 from marketlab.core import Side
 from marketlab.describe import describe, money
 from marketlab.log import EventLog, LogError, read_log, write_log
-from marketlab.projection import MarketState
+from marketlab.projection import MarketState, command_ends
 from marketlab.sim import SimConfig, run_simulation
 
 
@@ -51,6 +52,12 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("--levels", type=int, default=5, help="price levels to show on each side")
     show.set_defaults(handler=_show)
 
+    serve = commands.add_parser("serve", help="start the web server (the live dashboard talks to it)")
+    serve.add_argument("--host", default="127.0.0.1", help="keep the default unless you know why you are changing it")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--web", type=Path, default=Path("web/dist"), help="the built dashboard, if you have built it")
+    serve.set_defaults(handler=_serve)
+
     replay = commands.add_parser("replay", help="re-run a simulated log from its seed and check it matches")
     replay.add_argument("log", type=Path)
     replay.set_defaults(handler=_replay)
@@ -73,15 +80,33 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+
+        from marketlab.api import create_app
+    except ImportError:
+        print('error: the web server needs extra packages. Run:  pip install -e ".[api]"', file=sys.stderr)
+        return 2
+    web = args.web if args.web.is_dir() else None
+    dashboard = "built" if web else "not built, use npm run dev"
+    print(f"Market Lab server on http://{args.host}:{args.port}  (dashboard: {dashboard})")
+    uvicorn.run(create_app(web), host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def _show(args: argparse.Namespace) -> int:
     log = read_log(args.log)
-    count = len(log.events) if args.until is None else max(0, min(args.until, len(log.events)))
+    wanted = len(log.events) if args.until is None else max(0, min(args.until, len(log.events)))
+    # Stop at the end of a finished command, never in the middle of one (see projection.command_ends).
+    count = max((end for end in command_ends(log.events) if end <= wanted), default=0)
     state = MarketState(log.instrument)
     state.apply_all(log.events[:count])
     print(f"{args.log}: {len(log.events)} events, fingerprint {log.sha256} (checked)")
     if log.skipped_unknown:
         print(f"note: {log.skipped_unknown} events of an unknown type were skipped")
-    print(f"showing the market after {count} events")
+    note = f" (you asked for {wanted}; event {wanted} is in the middle of a command)" if count != wanted else ""
+    print(f"showing the market after {count} events{note}")
     print(_summary(state))
     print(_book(state, args.levels))
     if args.events > 0:

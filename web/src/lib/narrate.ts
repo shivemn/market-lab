@@ -1,0 +1,77 @@
+import { rupees } from "./format";
+import type { MarketEvent } from "./market";
+
+/** One plain-language sentence for the commands that finished just before `count` events. Newest first. */
+export function narrate(events: readonly MarketEvent[], ends: readonly number[], count: number, limit = 4): string[] {
+  const lines: string[] = [];
+  let upper = ends.findIndex((end) => end > count);
+  if (upper === -1) upper = ends.length;
+  for (let i = upper - 1; i >= 0 && lines.length < limit; i--) {
+    const group = events.slice(i === 0 ? 0 : ends[i - 1], ends[i]);
+    if (group.length > 0) lines.push(sentence(group));
+  }
+  return lines;
+}
+
+/** "MM2" is a market maker, "NT4" a casual trader, "VT1" a value trader. Anything else is just "A trader". */
+export function who(account: string): string {
+  if (account.startsWith("MM")) return "A market maker";
+  if (account.startsWith("NT")) return "A casual trader";
+  if (account.startsWith("VT")) return "A value trader";
+  return "A trader";
+}
+
+function shares(n: number): string {
+  return `${n} ${n === 1 ? "share" : "shares"}`;
+}
+
+function sentence(group: readonly MarketEvent[]): string {
+  const first = group[0];
+  const trades = group.filter((e): e is Extract<MarketEvent, { type: "Trade" }> => e.type === "Trade");
+  switch (first.type) {
+    case "SessionChanged":
+      if (first.session === "PRE_OPEN") return "The market opened for orders. Nothing trades until the opening auction.";
+      if (first.session === "OPEN") return "The market is open for trading.";
+      return "The market closed. Orders still waiting have expired.";
+    case "AuctionResult":
+      if (first.price === null) {
+        return `The opening auction found no price where buyers and sellers agree, so the day opens at ${rupees(first.opening_price)}.`;
+      }
+      return `The opening auction matched ${shares(first.volume)} at ${rupees(first.price)}. Everyone who traded got that same price.`;
+    case "OrderAccepted": {
+      if (trades.length > 0) return tradeSentence(trades);
+      const side = first.side === "BUY" ? "buy" : "sell";
+      if (first.limit_price === null) {
+        return `${who(first.account_id)} placed an order to ${side} ${shares(first.quantity)} at any price. It waits for the opening auction.`;
+      }
+      return `${who(first.account_id)} joined the queue to ${side} ${shares(first.quantity)} at ${rupees(first.limit_price)}.`;
+    }
+    case "OrderRejected":
+      return `An order was turned down by the exchange (${first.reason.toLowerCase().replace(/_/g, " ")}).`;
+    case "OrderCancelled":
+      return `A waiting order for ${shares(first.quantity)} was cancelled.`;
+    case "OrderModified":
+      return `An order was changed to ${shares(first.new_quantity)} at ${rupees(first.new_price)}${
+        first.lost_priority ? " and moved to the back of its queue" : " and kept its place in the queue"
+      }.`;
+    case "Trade":
+      return tradeSentence(trades);
+    case "OrderExpired":
+      return "An order expired.";
+  }
+}
+
+function tradeSentence(trades: readonly Extract<MarketEvent, { type: "Trade" }>[]): string {
+  const total = trades.reduce((sum, t) => sum + t.quantity, 0);
+  const prices = trades.map((t) => t.price);
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const where = low === high ? `at ${rupees(low)}` : `between ${rupees(low)} and ${rupees(high)}`;
+  const who =
+    trades[0].aggressor_side === "BUY"
+      ? "A buyer paid the seller's price."
+      : trades[0].aggressor_side === "SELL"
+        ? "A seller accepted the buyer's price."
+        : "";
+  return `${shares(total)} changed hands ${where}. ${who}`.trim();
+}
