@@ -75,7 +75,7 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 208 tests
+pytest                       # 264 tests
 ruff check .
 mypy
 cd web; npm test; cd ..      # 35 tests
@@ -118,9 +118,23 @@ share. Making matching faster would not make the simulation noticeably faster.
 
 ## Roadmap
 
-Phase 2 adds practice accounts with a double-entry ledger, orders you place yourself, Indian trading costs and an
-honest backtester that must beat simple baselines after costs. Later phases add real announcements with an event study,
+Phase 2 is under way (see below). It adds practice accounts with a double-entry ledger, orders you place yourself,
+Indian trading costs and an honest backtester that must beat simple baselines after costs. Later phases add real announcements with an event study,
 and a plain-language app for learners with virtual money. The full plan and decisions are in [SPEC.md](SPEC.md).
+
+## Phase 2: practice accounts
+
+| Week | Deliverable | Status |
+|---|---|---|
+| 7 | SQLite ledger: practice accounts with ₹1,00,000, double-entry transactions, overdraft guard, trades posted from the log | done |
+| 8 | Indian trading costs for delivery trades (brokerage, STT, exchange charges, GST, stamp duty) | |
+| 9 | Pre-trade checks and a live practice session where you can place orders | |
+| 10 | Order ticket and portfolio on the page | |
+| 11 | Statements, reconciliation tests, "what did trading cost me" | |
+| 12 | Write-up | |
+
+Scope for now: delivery trades only, long only (no short selling), instant settlement. Each is a simplification
+that will be lifted later.
 
 ## Layout
 
@@ -128,6 +142,7 @@ and a plain-language app for learners with virtual money. The full plan and deci
 src/marketlab/core/     order types, validation, order book, auction price, events, the exchange (no I/O)
 src/marketlab/codec.py, log.py     events as canonical text, the log file with its fingerprint
 src/marketlab/projection.py        the market rebuilt from events alone
+src/marketlab/ledger/   practice accounts and the double-entry ledger (SQLite), trades from the log become entries
 src/marketlab/sim/      random price process and the simulated traders
 src/marketlab/api/      the web server: REST and a WebSocket that plays a day back
 src/marketlab/cli.py    the `marketlab` command (run, show, replay, serve)

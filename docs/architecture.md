@@ -77,6 +77,38 @@ flowchart LR
     G --> H["Session becomes OPEN"]
 ```
 
+## The ledger (Phase 2)
+
+Practice accounts live in a small SQLite database. The exchange still knows nothing about them: it only writes
+`Trade` events, and the ledger reads those events afterwards. That keeps the log the single truth, and means a ledger
+can always be rebuilt from a log and checked against it.
+
+Every change is a transaction made of entries, and the entries must add up to zero **separately for money and for each
+stock**. A buy of 10 shares at ₹2,500.00 is four entries:
+
+```mermaid
+flowchart LR
+    subgraph money["Money (paise)"]
+        BC["Buyer's cash<br/><b>-25,00,000</b>"]
+        MC["Market cash<br/><b>+25,00,000</b>"]
+    end
+    subgraph shares["Shares of DEMO1"]
+        BS["Buyer's shares<br/><b>+10</b>"]
+        MS["Market shares<br/><b>-10</b>"]
+    end
+    BC --- MC
+    BS --- MS
+```
+
+The rules are enforced in two places, so a bug in one cannot silently corrupt the books:
+
+| Rule | Python checks it before writing | The database refuses it too |
+|---|---|---|
+| Entries add up to zero per unit | yes | audited by `Ledger.verify()` |
+| A practice account never goes below zero | yes, with a message that says how much is missing | yes, a trigger |
+| Nothing is edited or deleted afterwards | n/a | yes, triggers |
+| The same trade is never recorded twice | yes, by a `cause` key | yes, a unique constraint |
+
 ## Why the web page recomputes things
 
 The web page does not ask the server "what does the book look like?". It receives the same events and folds them

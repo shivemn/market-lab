@@ -71,11 +71,7 @@ class Reference:
         while remaining > 0:
             others = [o for o in self.resting if o.side is not side]
             if limit_price is not None:
-                others = [
-                    o
-                    for o in others
-                    if (o.price <= limit_price if side is Side.BUY else o.price >= limit_price)
-                ]
+                others = [o for o in others if (o.price <= limit_price if side is Side.BUY else o.price >= limit_price)]
             if not others:
                 break
             # Best price first (lowest ask for a buyer, highest bid for a seller), then earliest.
@@ -231,9 +227,7 @@ class ExchangeMachine(RuleBasedStateMachine):
                     key=lambda o: o.priority,
                 )
                 actual = self.ex.book.orders_at(side, view.price)
-                assert [(o.order_id, o.remaining) for o in actual] == [
-                    (o.order_id, o.remaining) for o in queue
-                ]
+                assert [(o.order_id, o.remaining) for o in actual] == [(o.order_id, o.remaining) for o in queue]
         assert len(self.ex.book) == len(self.ref.resting)
 
         # The market rebuilt from events alone matches the live book: same levels, same queues, same sizes.

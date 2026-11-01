@@ -24,9 +24,7 @@ def check_price(instrument: Instrument, price: int) -> RejectReason | None:
     return None
 
 
-def validate_order(
-    order: Order, instrument: Instrument | None, session: Session
-) -> RejectReason | None:
+def validate_order(order: Order, instrument: Instrument | None, session: Session) -> RejectReason | None:
     if instrument is None or instrument.symbol != order.symbol:
         return RejectReason.UNKNOWN_SYMBOL
     if session is Session.CLOSED:

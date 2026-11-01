@@ -283,3 +283,12 @@ and the backtester are finished.
    TypeScript and a test checks it against the exchange's own answer on 40 simulated mornings), a benchmark
    (`python -m benchmarks.bench_exchange`, results in `docs/benchmark-results.md`), architecture diagrams
    (`docs/architecture.md`), screenshots, and the portfolio README. Phase 1 is complete.
+8. **Phase 2 decisions (agreed):** delivery product only (intraday later); instant settlement; a small database for
+   accounts that persist across days (SQLite: one file, in the standard library, real transactions, and it can be
+   moved to Postgres in Phase 4); long only, no short selling; one kind of trading to begin with.
+9. **Week 7 delivered:** `marketlab.ledger`. Accounts hold one unit each (paise or shares of one stock); a transaction
+   is a set of signed entries that add up to zero per unit; practice accounts cannot go below zero (checked in Python
+   with a clear message and again by a database trigger); entries and transactions are append-only; a `cause` key
+   makes replaying the same log harmless; `post_trades` turns `Trade` events into entries. Tested with hand-worked
+   examples, a Hypothesis comparison against a plain dictionary, a reconciliation of the ledger against the trades on
+   25 simulated days, and deliberate bugs that the tests must catch.

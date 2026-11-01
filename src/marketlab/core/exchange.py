@@ -93,9 +93,7 @@ class Exchange:
         events.append(SessionChanged(self._next_seq(), sim_time, session))
         if session is Session.CLOSED:
             for market_order in self._auction_market:
-                events.append(
-                    OrderExpired(self._next_seq(), sim_time, market_order.order_id, market_order.remaining)
-                )
+                events.append(OrderExpired(self._next_seq(), sim_time, market_order.order_id, market_order.remaining))
             self._auction_market = []
             for order in self.book.all_orders():
                 self.book.cancel(order.order_id)
@@ -182,9 +180,7 @@ class Exchange:
             self.book.rest(order)
         else:
             cancel_reason = (
-                CancelReason.MARKET_REMAINDER
-                if order.type is OrderType.MARKET
-                else CancelReason.IOC_REMAINDER
+                CancelReason.MARKET_REMAINDER if order.type is OrderType.MARKET else CancelReason.IOC_REMAINDER
             )
             events.append(OrderCancelled(self._next_seq(), t, order.order_id, order.remaining, cancel_reason))
 
@@ -271,9 +267,7 @@ class Exchange:
             if order.tif is TimeInForce.IOC:
                 self.book.cancel(order.order_id)
                 events.append(
-                    OrderCancelled(
-                        self._next_seq(), t, order.order_id, order.remaining, CancelReason.IOC_REMAINDER
-                    )
+                    OrderCancelled(self._next_seq(), t, order.order_id, order.remaining, CancelReason.IOC_REMAINDER)
                 )
         assert not self.book.is_crossed(), "the auction left a crossed book"
 
@@ -331,9 +325,7 @@ class Exchange:
             self.book.reduce(order.order_id, new_quantity - filled)
             order.quantity = new_quantity
             events.append(
-                OrderModified(
-                    self._next_seq(), t, order.order_id, new_quantity, new_price, order.remaining, False
-                )
+                OrderModified(self._next_seq(), t, order.order_id, new_quantity, new_price, order.remaining, False)
             )
             return
 

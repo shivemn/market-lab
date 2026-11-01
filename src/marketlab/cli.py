@@ -1,9 +1,9 @@
 """The command line: run a simulation, look inside a log, and check that a log can be reproduced.
 
-    marketlab run --seed 7 --out runs/demo.jsonl
-    marketlab show runs/demo.jsonl --until 500 --events 10
-    marketlab replay runs/demo.jsonl
-    marketlab serve
+marketlab run --seed 7 --out runs/demo.jsonl
+marketlab show runs/demo.jsonl --until 500 --events 10
+marketlab replay runs/demo.jsonl
+marketlab serve
 """
 
 from __future__ import annotations

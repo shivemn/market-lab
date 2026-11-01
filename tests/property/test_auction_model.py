@@ -184,4 +184,3 @@ def test_every_auction_obeys_the_rules(specs: list[tuple[Side, str, int, int]], 
                     assert done == 0, f"order {order.order_id} traded behind an unfilled better order"
                 if done < order.quantity:
                     seen_partial = True
-

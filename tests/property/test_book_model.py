@@ -77,11 +77,7 @@ class BookMachine(RuleBasedStateMachine):
             expected = self.expected_depth(side)
             assert self.book.depth(side) == expected
             for view in expected:
-                queue = [
-                    oid
-                    for oid, (s, p, _) in self.model.items()
-                    if s is side and p == view.price
-                ]
+                queue = [oid for oid, (s, p, _) in self.model.items() if s is side and p == view.price]
                 assert [o.order_id for o in self.book.orders_at(side, view.price)] == queue
         expected_bids = self.expected_depth(Side.BUY)
         expected_asks = self.expected_depth(Side.SELL)
