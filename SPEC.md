@@ -292,3 +292,12 @@ and the backtester are finished.
    makes replaying the same log harmless; `post_trades` turns `Trade` events into entries. Tested with hand-worked
    examples, a Hypothesis comparison against a plain dictionary, a reconciliation of the ledger against the trades on
    25 simulated days, and deliberate bugs that the tests must catch.
+10. **Week 8 delivered:** `marketlab.costs` and `marketlab costs`. Rates are exact fractions (never floats), rounded to the
+    paisa with halves up. Government and exchange charges are a dated `ChargeSchedule` with its source; the broker's own
+    charges are a separate `BrokerPlan` (default "zero": no brokerage, no demat fee). The NSE transaction charge is
+    Rs 307 per crore from 1 March 2026 (NSE circular NSE/FA/73061; Rs 297 before). STT 0.1% both sides, stamp duty
+    0.015% on buys, SEBI fee Rs 10 per crore and GST 18% (on brokerage, demat, exchange and SEBI charges, not on STT or
+    stamp duty) come from broker pages and should be checked against the statutes before anyone relies on them.
+    Charges are worked out per order and collected fill by fill, so splitting an order never changes its total, and a
+    flat brokerage lands on the first fill. Each kind of charge has its own ledger account. Simplifications: demat fee
+    charged per sell order, not per holding per day; delivery equity on the NSE only.

@@ -19,10 +19,11 @@ from dataclasses import dataclass
 
 from marketlab.ledger.names import (
     CAPITAL,
-    COSTS,
+    COST_LINES,
     INR,
     MARKET_CASH,
     cash_account,
+    cost_account,
     shares_account,
 )
 from marketlab.ledger.schema import MIGRATIONS
@@ -72,7 +73,8 @@ class Ledger:
         self._migrate()
         self.ensure_account(CAPITAL, INR, allows_negative=True)
         self.ensure_account(MARKET_CASH, INR, allows_negative=True)
-        self.ensure_account(COSTS, INR)
+        for line in COST_LINES:
+            self.ensure_account(cost_account(line), INR)
 
     # -- the database file ------------------------------------------------------------------------------------
 

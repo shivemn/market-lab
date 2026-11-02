@@ -11,7 +11,7 @@ INR = "INR"  # amounts of money are whole paise
 
 CAPITAL = "system:capital"  # where the virtual money comes from
 MARKET_CASH = "system:market:cash"  # the other side of every trade, for money
-COSTS = "system:costs"  # brokerage, taxes and charges end up here (from Week 8)
+COST_LINES = ("brokerage", "stt", "exchange", "sebi", "stamp", "demat", "gst")  # where each kind of charge ends up
 
 
 def _check_owner(owner: str) -> str:
@@ -31,3 +31,10 @@ def shares_account(owner: str, symbol: str) -> str:
 def market_shares_account(symbol: str) -> str:
     """The other side of every trade, for shares of one stock."""
     return f"system:market:shares:{symbol}"
+
+
+def cost_account(line: str) -> str:
+    """The account that collects one kind of charge, for example the securities transaction tax."""
+    if line not in COST_LINES:
+        raise ValueError(f"unknown cost line {line!r}; expected one of {COST_LINES}")
+    return f"system:costs:{line}"

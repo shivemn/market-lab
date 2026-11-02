@@ -12,17 +12,18 @@ from marketlab.ledger.ledger import (
 )
 from marketlab.ledger.names import (
     CAPITAL,
-    COSTS,
+    COST_LINES,
     INR,
     MARKET_CASH,
     cash_account,
+    cost_account,
     market_shares_account,
     shares_account,
 )
 
 __all__ = [
     "CAPITAL",
-    "COSTS",
+    "COST_LINES",
     "INR",
     "MARKET_CASH",
     "STARTING_CASH",
@@ -33,6 +34,7 @@ __all__ = [
     "Transaction",
     "Unbalanced",
     "cash_account",
+    "cost_account",
     "market_shares_account",
     "post_trades",
     "shares_account",

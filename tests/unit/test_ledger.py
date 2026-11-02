@@ -9,7 +9,7 @@ import pytest
 
 from marketlab.ledger import (
     CAPITAL,
-    COSTS,
+    COST_LINES,
     INR,
     MARKET_CASH,
     STARTING_CASH,
@@ -19,6 +19,7 @@ from marketlab.ledger import (
     LedgerError,
     Unbalanced,
     cash_account,
+    cost_account,
     shares_account,
 )
 
@@ -192,8 +193,8 @@ def test_verify_notices_a_balance_that_was_edited_by_hand(ledger: Ledger) -> Non
     assert len(problems) == 1 and "user:shi:cash" in problems[0]
 
 
-def test_the_costs_account_exists_for_week_8(ledger: Ledger) -> None:
-    assert ledger.balance(COSTS) == 0
+def test_there_is_one_account_per_kind_of_charge(ledger: Ledger) -> None:
+    assert all(ledger.balance(cost_account(line)) == 0 for line in COST_LINES)
 
 
 # -- the file ----------------------------------------------------------------------------------------------------

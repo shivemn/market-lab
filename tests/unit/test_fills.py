@@ -76,3 +76,56 @@ def test_a_buyer_who_cannot_afford_the_trade_is_refused_and_nothing_is_recorded(
         post_trades(ledger, events, source="day", tracked={"A"}.__contains__)
     assert ledger.cash("A") == 1_000_000
     assert len(ledger.transactions()) == 1  # only the opening deposit
+
+
+# -- with charges --------------------------------------------------------------------------------------------------
+
+
+def test_a_buy_split_over_two_fills_pays_the_same_charges_as_one_buy() -> None:
+    from datetime import date
+
+    from marketlab.core import Side
+    from marketlab.costs import PLANS, CostModel, schedule_on
+    from marketlab.ledger import COST_LINES, cost_account
+
+    model = CostModel(schedule_on(date(2026, 11, 1)), PLANS["flat20"])
+    ledger = Ledger()
+    ledger.open_account("A", starting_cash=30_000_000)
+    ledger.open_account("C", starting_cash=0, allows_negative=True)
+    ledger.open_account("D", starting_cash=0, allows_negative=True)
+    events, _ = scripted_day()
+    # A buys 100 in the auction as two fills of 50 (from C and from D). Sellers C and D are tracked too.
+    post_trades(ledger, events, source="day", tracked={"A", "C", "D"}.__contains__, allows_negative=True, costs=model)
+
+    # A's order cost: value 25,000,000 paise; flat plan: brokerage 2,000 + STT 25,000 + exchange 768 + SEBI 25
+    # + stamp 3,750 + GST 503 = 32,046 paise. Brokerage is charged once, not once per fill.
+    # Orders that traded: A's buy, C's sell (80 shares, two fills) and D's sell (80 shares, two fills). Brokerage is
+    # once per order, so 3 x 2,000.
+    assert ledger.balance(cost_account("brokerage")) == 3 * 2_000
+    paid_by_a = 30_000_000 - ledger.cash("A")
+    assert paid_by_a == 25_000_000 + 32_046
+    # every paisa charged went to a charge account, and the charge accounts hold exactly the three orders' costs
+    expected = (
+        model.for_order(Side.BUY, 25_000_000).total
+        + model.for_order(Side.SELL, 80 * 250_000).total
+        + model.for_order(Side.SELL, 80 * 250_000).total
+    )
+    assert sum(ledger.balance(cost_account(line)) for line in COST_LINES) == expected
+    assert ledger.verify() == []
+
+
+def test_charges_make_a_buy_that_just_fits_without_them_fail() -> None:
+    from datetime import date
+
+    import pytest
+
+    from marketlab.costs import PLANS, CostModel, schedule_on
+    from marketlab.ledger import InsufficientBalance
+
+    model = CostModel(schedule_on(date(2026, 11, 1)), PLANS["zero"])
+    ledger = Ledger()
+    ledger.open_account("A", starting_cash=100 * 250_000)  # exactly the price of 100 shares, nothing for charges
+    events, _ = scripted_day()
+    with pytest.raises(InsufficientBalance):
+        post_trades(ledger, events, source="day", tracked={"A"}.__contains__, allows_negative=True, costs=model)
+    assert ledger.cash("A") == 100 * 250_000

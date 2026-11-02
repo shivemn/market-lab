@@ -75,7 +75,7 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 264 tests
+pytest                       # the test suite
 ruff check .
 mypy
 cd web; npm test; cd ..      # 35 tests
@@ -124,10 +124,32 @@ and a plain-language app for learners with virtual money. The full plan and deci
 
 ## Phase 2: practice accounts
 
+What does a trade cost? Ask the calculator:
+
+```
+marketlab costs --side buy --quantity 100 --price 2500
+```
+
+```
+Buy 100 shares at 2,500.00
+  Value of the trade                      250,000.00
+  Securities transaction tax                  250.00
+  Exchange transaction charge                   7.68
+  SEBI turnover fee                             0.25
+  Stamp duty                                   37.50
+  GST                                           1.43
+  Total charges                               296.86
+```
+
+Buying and then selling the same shares at the same price costs about 0.22% of the value in charges, so the price has
+to move about that much just to break even. The rates are in `src/marketlab/costs.py` as exact fractions, in dated
+schedules that say where each number came from. Charges are collected into one ledger account per kind, so a statement
+can later show exactly what was paid and why. These are teaching numbers; check a real contract note for real money.
+
 | Week | Deliverable | Status |
 |---|---|---|
 | 7 | SQLite ledger: practice accounts with ₹1,00,000, double-entry transactions, overdraft guard, trades posted from the log | done |
-| 8 | Indian trading costs for delivery trades (brokerage, STT, exchange charges, GST, stamp duty) | |
+| 8 | Indian trading costs for delivery trades (STT, exchange charge, SEBI fee, stamp duty, GST, optional brokerage), dated and sourced | done |
 | 9 | Pre-trade checks and a live practice session where you can place orders | |
 | 10 | Order ticket and portfolio on the page | |
 | 11 | Statements, reconciliation tests, "what did trading cost me" | |

@@ -4,6 +4,7 @@ marketlab run --seed 7 --out runs/demo.jsonl
 marketlab show runs/demo.jsonl --until 500 --events 10
 marketlab replay runs/demo.jsonl
 marketlab serve
+marketlab costs --side buy --quantity 100 --price 2500
 """
 
 from __future__ import annotations
@@ -11,9 +12,11 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 from marketlab.core import Side
+from marketlab.costs import PLANS, CostModel, schedule_on
 from marketlab.describe import describe, money
 from marketlab.log import EventLog, LogError, read_log, write_log
 from marketlab.projection import MarketState, command_ends
@@ -57,6 +60,14 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--web", type=Path, default=Path("web/dist"), help="the built dashboard, if you have built it")
     serve.set_defaults(handler=_serve)
+
+    costs = commands.add_parser("costs", help="what a delivery trade would cost, line by line")
+    costs.add_argument("--side", choices=["buy", "sell"], required=True)
+    costs.add_argument("--quantity", type=int, required=True, help="number of shares")
+    costs.add_argument("--price", type=float, required=True, help="price per share, in rupees")
+    costs.add_argument("--plan", choices=sorted(PLANS), default="zero", help="the broker's own charges")
+    costs.add_argument("--date", type=date.fromisoformat, default=None, help="trading day, YYYY-MM-DD (default: today)")
+    costs.set_defaults(handler=_costs)
 
     replay = commands.add_parser("replay", help="re-run a simulated log from its seed and check it matches")
     replay.add_argument("log", type=Path)
@@ -115,6 +126,36 @@ def _show(args: argparse.Namespace) -> int:
             print("  " + describe(event))
     kinds = Counter(type(event).__name__ for event in log.events[:count])
     print("\nevent counts: " + ", ".join(f"{name} {n}" for name, n in sorted(kinds.items())))
+    return 0
+
+
+def _costs(args: argparse.Namespace) -> int:
+    if args.quantity <= 0 or args.price <= 0:
+        raise ValueError("quantity and price must be positive")
+    paise = round(args.price * 100)
+    if abs(paise - args.price * 100) > 1e-6:
+        raise ValueError("price must be in whole paise, for example 2500.05")
+    side = Side.BUY if args.side == "buy" else Side.SELL
+    day = args.date or date.today()
+    model = CostModel(schedule_on(day), PLANS[args.plan])
+    value = paise * args.quantity
+    breakdown = model.for_order(side, value)
+    names = {
+        "brokerage": "Brokerage",
+        "stt": "Securities transaction tax",
+        "exchange": "Exchange transaction charge",
+        "sebi": "SEBI turnover fee",
+        "stamp": "Stamp duty",
+        "demat": "Demat fee",
+        "gst": "GST",
+    }
+    print(f"{args.side.capitalize()} {args.quantity} shares at {money(paise)}   (charges in force on {day})")
+    print(f"  Value of the trade                  {money(value):>14}")
+    for line, amount in breakdown.lines():
+        if amount:
+            print(f"  {names[line]:<35} {money(amount):>14}")
+    print(f"  {'Total charges':<35} {money(breakdown.total):>14}")
+    print(f"  That is {breakdown.total * 100 / value:.3f}% of the trade's value.")
     return 0
 
 
