@@ -227,3 +227,6 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .past-day .fills { margin-top: 8px; }
 
 .lesson { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--muted); background: var(--shade); font-size: 14px; max-width: 80ch; }
+
+.company-pick { display: inline-flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.company-pick select { font-size: 15px; padding: 6px 10px; min-width: 280px; }

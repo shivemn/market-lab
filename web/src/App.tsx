@@ -8,6 +8,7 @@ import { HowToRead, JustHappened, StartPanel } from "./components/Side";
 import { fold } from "./lib/market";
 import { narrate } from "./lib/narrate";
 import { biggestMove, endTimes, lastEndAtOrBefore, priceSeries, tradeSeries } from "./lib/series";
+import { COMPANIES } from "./lib/companies";
 import { useRun } from "./lib/useRun";
 
 export default function App() {
@@ -17,10 +18,25 @@ export default function App() {
   const [followed, setFollowed] = useState<number | null>(null);
   const [view, setView] = useState<"day" | "auction" | "practice">("day");
   const { start } = run;
+  const [company, setCompany] = useState("UDHAAR");
 
   useEffect(() => {
     void start({ seed: 7, open_seconds: 600, pre_open_seconds: 60, noise_traders: 20, company: "UDHAAR" });
   }, [start]);
+
+  const pickCompany = (symbol: string) => {
+    setCompany(symbol);
+    setCursor(null);
+    setFollowed(null);
+    const config = summary?.config;
+    void start({
+      seed: config?.seed ?? 7,
+      open_seconds: config?.open_seconds ?? 600,
+      pre_open_seconds: config?.pre_open_seconds ?? 60,
+      noise_traders: config?.noise_traders ?? 20,
+      company: symbol,
+    });
+  };
 
   const latest = ends.length - 1;
   const position = cursor === null ? latest : Math.min(cursor, latest);
@@ -79,10 +95,20 @@ export default function App() {
     <div className="app">
       <Header state={state} summary={summary} />
       {tabs}
+      <label className="company-pick">
+        Company to watch
+        <select value={company} onChange={(e) => pickCompany(e.target.value)}>
+          {COMPANIES.map((c) => (
+            <option key={c.symbol} value={c.symbol}>
+              {c.symbol} · {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <p className="lesson" role="note">
         {view === "auction"
-          ? "A lesson, not your account. Before 9:15 the exchange does not trade one order at a time. It collects orders for 15 minutes, then finds the single price at which the most shares can change hands, and everyone matched gets that price. That price is where the day opens. Here is how it is worked out for UDHAAR."
-          : "A lesson, not your account. This replays one made-up company, UDHAAR, and shows the queue of buyers and sellers behind every price. Nothing you do here uses your money. To trade across all twelve companies, go to Practice."}
+          ? "A lesson, not your account. Before 9:15 the exchange does not trade one order at a time. It collects orders for 15 minutes, then finds the single price at which the most shares can change hands, and everyone matched gets that price. That price is where the day opens. Here is how it is worked out for the company you chose."
+          : "A lesson, not your account. This replays the one company you choose above, and shows the queue of buyers and sellers behind every price. Nothing you do here uses your money. To trade across all twelve companies, go to Practice."}
       </p>
       {view === "auction" ? (
         <AuctionView events={events} version={version} instrument={summary?.instrument ?? null} onBack={() => setView("day")} />
@@ -112,7 +138,7 @@ export default function App() {
             open_seconds: summary.config.open_seconds,
             pre_open_seconds: summary.config.pre_open_seconds,
             noise_traders: summary.config.noise_traders,
-            company: summary.instrument.symbol,
+            company,
           });
         }}
         onPlayPause={run.togglePause}
@@ -133,7 +159,7 @@ export default function App() {
           onStart={(request) => {
             setCursor(null);
             setFollowed(null);
-            void run.start(request);
+            void run.start({ ...request, company });
           }}
         />
         {summary && (
