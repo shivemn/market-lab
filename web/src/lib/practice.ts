@@ -58,6 +58,37 @@ export interface OrderReply extends Update {
   order_id: number;
 }
 
+export interface StatementRow {
+  at: number;
+  kind: "start" | "grant" | "buy" | "sell";
+  memo: string;
+  symbol: string | null;
+  shares_change: number;
+  value: number;
+  charges: Record<string, number>;
+  money_change: number;
+  money_after: number;
+}
+
+export interface Statement {
+  symbol: string;
+  price: number;
+  rows: StatementRow[];
+  starting_money: number;
+  money: number;
+  holdings: Record<string, number>;
+  bought: number;
+  sold: number;
+  traded_value: number;
+  charges_by_line: Record<string, number>;
+  total_charges: number;
+  charges_basis_points: number;
+  worth: number;
+  gain: number;
+  gain_before_charges: number;
+  problems: string[];
+}
+
 export type PlanName = "zero" | "flat20";
 
 export interface StartRequest {
@@ -102,3 +133,5 @@ export const placeOrder = (id: string, side: Side, quantity: number, limitPrice:
 export const cancelOrder = (id: string, orderId: number) => call<Update>("DELETE", `/api/sessions/${id}/orders/${orderId}`);
 
 export const endPractice = (id: string) => call<{ ended: boolean; portfolio: Portfolio }>("DELETE", `/api/sessions/${id}`);
+
+export const getStatement = (id: string) => call<Statement>("GET", `/api/sessions/${id}/statement`);

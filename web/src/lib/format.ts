@@ -10,7 +10,7 @@ export function money(paise: number): string {
   return `${sign}${grouped}.${rest}`;
 }
 
-export const rupees = (paise: number): string => `₹${money(paise)}`;
+export const rupees = (paise: number): string => `${paise < 0 ? "-" : ""}₹${money(Math.abs(paise))}`;
 
 /** Microseconds since the start of the day as "6 min 33 s". */
 export function dayClock(micros: number): string {

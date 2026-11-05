@@ -19,6 +19,7 @@ Practice sessions (Week 9). The server owns no clock: the day moves only when th
     POST   /api/sessions                       start a day for a practice account; returns the opening events
     GET    /api/sessions/{id}                  the account: cash, set aside, shares, open orders
     GET    /api/sessions/{id}/market           the market as it stands now
+    GET    /api/sessions/{id}/statement        every trade and charge so far, and what trading has cost
     POST   /api/sessions/{id}/advance          move the day forward {seconds}; stops early when your order trades
     POST   /api/sessions/{id}/orders           place an order; a refusal is a 422 with the reason in plain words
     DELETE /api/sessions/{id}/orders/{order}   cancel an open order
@@ -47,7 +48,7 @@ from pydantic import BaseModel, Field
 from marketlab.codec import event_to_dict
 from marketlab.core import Instrument, Side, TimeInForce
 from marketlab.costs import PLANS
-from marketlab.ledger import Ledger, OrderRefused
+from marketlab.ledger import Ledger, OrderRefused, build_statement
 from marketlab.projection import MarketState
 from marketlab.session import Portfolio, PracticeSession
 from marketlab.sim import SimConfig, SimulationResult, run_simulation
@@ -180,6 +181,45 @@ def snapshot(run: StoredRun, at: int, levels: int) -> dict[str, Any]:
     state = MarketState(run.result.instrument)
     state.apply_all(run.result.events[:count])
     return state_json(state, levels)
+
+
+def statement_json(session: PracticeSession) -> dict[str, Any]:
+    """The account statement, with holdings valued at the last traded price (or the previous close before any trade)."""
+    statement = build_statement(session.ledger, session.owner)
+    symbol = session.sim.instrument.symbol
+    price = session.sim.state.last_price or session.sim.instrument.reference_price
+    result = statement.result({symbol: price})
+    return {
+        "symbol": symbol,
+        "price": price,
+        "rows": [
+            {
+                "at": r.at,
+                "kind": r.kind,
+                "memo": r.memo,
+                "symbol": r.symbol,
+                "shares_change": r.shares_change,
+                "value": r.value,
+                "charges": {line: amount for line, amount in r.charges},
+                "money_change": r.money_change,
+                "money_after": r.money_after,
+            }
+            for r in statement.rows
+        ],
+        "starting_money": statement.starting_money,
+        "money": statement.money,
+        "holdings": dict(statement.holdings),
+        "bought": statement.bought,
+        "sold": statement.sold,
+        "traded_value": statement.traded_value,
+        "charges_by_line": statement.charges_by_line,
+        "total_charges": statement.total_charges,
+        "charges_basis_points": statement.charges_basis_points,
+        "worth": statement.worth({symbol: price}),
+        "gain": result["gain"],
+        "gain_before_charges": result["gain_before_charges"],
+        "problems": statement.check() + session.ledger.verify(),
+    }
 
 
 def portfolio_json(folio: Portfolio) -> dict[str, Any]:
@@ -332,6 +372,11 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def session_market(session_id: str, levels: int = Query(10, ge=1, le=100)) -> dict[str, Any]:
         with lock:
             return state_json(find_session(session_id).sim.state, levels)
+
+    @app.get("/api/sessions/{session_id}/statement")
+    def session_statement(session_id: str) -> dict[str, Any]:
+        with lock:
+            return statement_json(find_session(session_id))
 
     @app.post("/api/sessions/{session_id}/advance")
     def advance_session(session_id: str, request: AdvanceRequest) -> dict[str, Any]:

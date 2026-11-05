@@ -126,6 +126,8 @@ and a plain-language app for learners with virtual money. The full plan and deci
 
 ![The Practice tab: place an order, watch it join the queue, see what it cost](docs/img/practice-view.png)
 
+![The statement: every trade, each charge line, and the result after charges](docs/img/statement-view.png)
+
 Open the **Practice** tab, start a day and press play. You can place an order at any moment. The page tells you in
 plain words what it would do before you send it ("3 shares already waiting at that price would trade before yours"),
 and if you cannot afford it, it says exactly why. Your orders show in yellow in the queue. When one of them trades the
@@ -161,7 +163,7 @@ can later show exactly what was paid and why. These are teaching numbers; check 
 | 9a | Pre-trade checks: cash and shares set aside while an order is open, refusals in plain words, settlement fill by fill | done |
 | 9b | A live practice session: place and cancel orders in a day that moves only when you advance it (API; the page follows in Week 10) | done |
 | 10 | The Practice tab: order ticket with a plain-words preview, your account, open orders, a day that pauses when your order trades | done |
-| 11 | Statements, reconciliation tests, "what did trading cost me" | |
+| 11 | Statements built from the ledger alone, reconciled against its balances; "what trading has cost you" by charge line | done |
 | 12 | Write-up | |
 
 Scope for now: delivery trades only, long only (no short selling), instant settlement. Each is a simplification

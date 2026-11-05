@@ -183,3 +183,10 @@ h2 { margin: 0; font-size: 20px; }
 .orders li { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .buy-text { color: var(--buy); }
 .sell-text { color: var(--sell-text); }
+
+.table-scroll { overflow-x: auto; }
+table.statement { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; font-variant-numeric: tabular-nums; }
+table.statement th, table.statement td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--row-line); vertical-align: top; }
+table.statement th { color: var(--muted); font-weight: 600; font-size: 13px; }
+table.statement td:nth-child(n + 3), table.statement th:nth-child(n + 3) { text-align: right; white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

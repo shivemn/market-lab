@@ -24,6 +24,7 @@ from marketlab.ledger.names import (
     reserved_account,
     shares_account,
 )
+from marketlab.ledger.statement import Statement, StatementRow, build_statement
 
 __all__ = [
     "CAPITAL",
@@ -37,8 +38,11 @@ __all__ = [
     "Ledger",
     "LedgerError",
     "OrderRefused",
+    "Statement",
+    "StatementRow",
     "Transaction",
     "Unbalanced",
+    "build_statement",
     "cash_account",
     "capital_shares_account",
     "cost_account",

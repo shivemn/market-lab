@@ -311,7 +311,6 @@ and the backtester are finished.
     Tested on a real exchange with hand-worked cases, a random-sequence test that checks after every step that the
     ledger agrees with the gateway and the exchange's book, and that the live ledger equals one rebuilt from the log
     alone; five deliberate bugs are caught.
-
 ## 14. Design for Week 9b: the live practice session (to review before building)
 
 **Principle: the server never owns a clock.** It advances the simulation only when asked. The browser keeps the timer,
@@ -366,3 +365,11 @@ invariant from Week 9a; refusals do not change the day.
     rupees with Indian grouping. Narration says "Your order traded: you bought 5 shares at ..." for your own trades.
     Checked end to end against a real server with Playwright (refusal, market buy, resting limit order, auto-pause on a
     fill). Known limits: no modify, no marks for your fills on the chart yet, practice state lives in the server's memory.
+14. **Week 11 delivered:** `build_statement(ledger, owner)` reads only ledger transactions. Reservations and releases
+    move money between an owner's own accounts, so they are left out; "money" means cash plus cash set aside, and
+    "shares" means free plus locked, so the statement does not jump while orders are open. It lists the starting
+    money, share grants, and each fill with the charges it paid, and `check()` compares the result with the ledger's
+    stored balances. `GET /api/sessions/{id}/statement` serves it, and the Practice tab shows "what trading has cost
+    you" by charge line. The result splits into price moves and charges. Holdings are valued at the last traded price
+    (the previous close before any trade). Tests include 15 random days reconciled against the live portfolio, and two
+    deliberately broken versions (wrong sign on charges, buy and sell swapped) that the tests catch.

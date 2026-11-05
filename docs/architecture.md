@@ -4,6 +4,42 @@ Everything is built around one idea: **the event log is the truth.** The exchang
 market". It appends events (an order was accepted, a trade happened, the session changed), and anything you want to
 know, such as the order book, the price chart or the opening auction, is worked out by reading those events in order.
 
+## The whole system
+
+How a practice session is wired, from the browser down to the ledger. Green-bordered parts touch your money.
+
+```mermaid
+flowchart LR
+    subgraph browser["Browser: React + TypeScript"]
+        ticket["Order ticket<br/>previews cost"]
+        clock["Clock<br/>ticks every 250 ms"]
+        fold["Fold events<br/>chart, queue, portfolio"]
+    end
+    subgraph server["Server: FastAPI"]
+        rest["/api/sessions<br/>one lock per session"]
+        runs["/api/runs and /ws/runs<br/>finished days"]
+    end
+    subgraph session["Practice session: Python"]
+        sim["Simulation<br/>fair value + traders"]
+        ex["Exchange core<br/>book, auction, sessions"]
+        gw["Gateway<br/>reserve, then settle"]
+        costs["Costs<br/>dated rate table"]
+        led[("Ledger<br/>SQLite")]
+    end
+    clock -- "POST advance" --> rest
+    ticket -- "POST orders" --> rest
+    rest -- "advance_to / inject" --> sim
+    sim -- "agent orders" --> ex
+    gw -- "your orders" --> ex
+    ex -- "fills" --> gw
+    gw -- "fees" --> costs
+    gw -- "postings" --> led
+    rest -. "new events, portfolio" .-> fold
+    runs -. "replay" .-> fold
+    classDef money stroke:#0b7f6f,stroke-width:2px
+    class gw,led,ticket money
+```
+
 ## The layers
 
 Each layer only knows about the ones above it in this picture. The exchange knows nothing about files, the web or the

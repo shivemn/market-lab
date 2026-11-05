@@ -9,6 +9,7 @@ import { OrderTicket } from "./OrderTicket";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { PriceChart } from "./PriceChart";
 import { Queue } from "./Queue";
+import { StatementPanel } from "./StatementPanel";
 import { JustHappened } from "./Side";
 
 type Practice = ReturnType<typeof usePractice>;
@@ -127,6 +128,11 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
               />
             </div>
           </main>
+          <StatementPanel
+            sessionId={session.id}
+            stamp={[portfolio.cash, portfolio.reserved, portfolio.shares, portfolio.locked].join(":")}
+            lastPrice={state.lastPrice}
+          />
           {practice.error && (
             <p className="error" role="alert">
               {practice.error}

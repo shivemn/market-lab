@@ -178,3 +178,17 @@ def test_every_reply_says_where_commands_end_so_a_client_can_fold_whole_commands
             assert reply["new_ends"][-1] == have  # the last new event always finishes a command
         everything += reply["new_ends"]
     assert everything == sorted(set(everything)), "boundaries only ever grow, never repeat"
+
+
+def test_the_statement_lists_trades_and_what_they_cost(client: TestClient) -> None:
+    sid = start(client, plan="flat20")["id"]
+    client.post(f"/api/sessions/{sid}/advance", json={"seconds": 15})
+    client.post(f"/api/sessions/{sid}/orders", json={"side": "BUY", "quantity": 4})
+    statement = client.get(f"/api/sessions/{sid}/statement").json()
+    assert statement["problems"] == []
+    assert statement["rows"][0]["kind"] == "start" and statement["starting_money"] == STARTING_CASH
+    assert statement["bought"] == statement["traded_value"] > 0
+    assert statement["total_charges"] == sum(statement["charges_by_line"].values()) > 0
+    assert statement["money"] == STARTING_CASH - statement["bought"] - statement["total_charges"]
+    assert statement["gain"] == statement["gain_before_charges"] - statement["total_charges"]
+    assert client.get("/api/sessions/nope/statement").status_code == 404
