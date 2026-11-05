@@ -207,7 +207,7 @@ def test_a_database_file_keeps_its_data_and_is_not_set_up_twice(tmp_path: Path) 
     first.close()
     second = Ledger(path)
     assert second.cash("shi") == STARTING_CASH
-    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 2
     second.open_account("shi")
     assert second.cash("shi") == STARTING_CASH
     second.close()
@@ -229,3 +229,19 @@ def test_the_same_account_cannot_be_redefined(ledger: Ledger) -> None:
         ledger.ensure_account("user:a:cash", INR, allows_negative=True)
     with pytest.raises(LedgerError):
         ledger.ensure_account("user:a:cash", "DEMO1")
+
+
+def test_an_old_database_gets_the_history_table_when_opened(tmp_path: Path) -> None:
+    import sqlite3
+
+    from marketlab.ledger.schema import MIGRATIONS
+
+    path = str(tmp_path / "old.db")
+    old = sqlite3.connect(path)
+    old.executescript(f"BEGIN;\n{MIGRATIONS[0]}\nPRAGMA user_version = 1;\nCOMMIT;")
+    old.close()
+    ledger = Ledger(path)  # opening it brings it up to date
+    assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
+    ledger.record_day("shi", 3, finished=True, closes={"A": 100}, summary={"result": 5, "fills": []})
+    assert ledger.last_closes("shi") == {"A": 100}
+    assert ledger.days("shi")[0]["result"] == 5

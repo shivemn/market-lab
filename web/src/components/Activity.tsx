@@ -5,13 +5,14 @@ import type { MarketEvent } from "../lib/market";
 import { useThrottled } from "../lib/useThrottled";
 import { Help } from "./Help";
 
-export type ActivityTab = "activity" | "companies" | "index" | "statement";
+export type ActivityTab = "activity" | "companies" | "index" | "statement" | "history";
 
 const TABS: { key: ActivityTab; label: string }[] = [
   { key: "activity", label: "Activity" },
   { key: "companies", label: "Your result by company" },
   { key: "index", label: "The index" },
   { key: "statement", label: "Statement and costs" },
+  { key: "history", label: "Your past days" },
 ];
 
 interface Props {

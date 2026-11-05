@@ -59,4 +59,17 @@ MIGRATIONS: list[str] = [
     CREATE TRIGGER transactions_append_only_delete BEFORE DELETE ON transactions
     BEGIN SELECT RAISE(ABORT, 'ledger transactions cannot be deleted'); END;
     """,
+    """
+    -- one row per practice day that was played, so the history survives restarts; not part of the books
+    CREATE TABLE days (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner TEXT NOT NULL,
+        seed INTEGER NOT NULL,
+        played_at TEXT NOT NULL DEFAULT (datetime('now')),
+        finished INTEGER NOT NULL CHECK (finished IN (0, 1)),
+        closes TEXT NOT NULL,
+        summary TEXT NOT NULL
+    );
+    CREATE INDEX days_by_owner ON days (owner);
+    """,
 ]

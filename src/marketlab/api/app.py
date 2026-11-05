@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import bisect
+import re
 import secrets
 import threading
 from collections import OrderedDict
@@ -397,6 +398,19 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         str, dict[str, int]
     ] = {}  # each account's last closing prices, so a new day opens where the last ended
     lock = threading.Lock()  # one request at a time touches the ledger and the sessions
+    saved: set[int] = set()  # practice worlds (by object id) whose day is already in the history
+
+    def save_day(pw: PracticeWorld) -> None:
+        """Put the day in the history once: when it ends, or when it is abandoned after some trading."""
+        if id(pw) in saved:
+            return
+        summary = pw.day_summary()
+        if not pw.world.finished and not summary["fills"]:
+            return  # a day walked away from before any trade is not worth keeping
+        saved.add(id(pw))
+        ledger.record_day(
+            pw.owner, pw.config.seed, finished=pw.world.finished, closes=pw.world.prices(), summary=summary
+        )
 
     def find_session(session_id: str) -> PracticeSession:
         session = sessions.get(session_id)
@@ -577,7 +591,9 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         )
         with lock:
             for old_id in [i for i, other in worlds.items() if other.owner == request.owner]:
-                worlds.pop(old_id).end_early()  # one day at a time per account; money set aside comes back
+                old = worlds.pop(old_id)
+                save_day(old)
+                old.end_early()  # one day at a time per account; money set aside comes back
             try:
                 pw = PracticeWorld(
                     config,
@@ -585,19 +601,31 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                     request.owner,
                     plan=request.plan,
                     trading_date=request.trading_date,
-                    previous_close=None if request.fresh_prices else closes.get(request.owner),
+                    previous_close=None
+                    if request.fresh_prices
+                    else closes.get(request.owner) or ledger.last_closes(request.owner),
                 )
             except ValueError as error:
                 raise HTTPException(422, str(error)) from error
             world_id = secrets.token_hex(6)
             worlds[world_id] = pw
             while len(worlds) > MAX_WORLDS_KEPT:
-                worlds.popitem(last=False)[1].end_early()
+                evicted = worlds.popitem(last=False)[1]
+                save_day(evicted)
+                evicted.end_early()
             return {
                 **world_json(world_id, pw),
                 "plan": PLANS[request.plan].description,
                 **new_events(pw, dict.fromkeys(pw.world.sims, 0)),
             }
+
+    @app.get("/api/accounts/{owner}/days")
+    def account_days(owner: str) -> dict[str, Any]:
+        """Every practice day this account has played, newest first, with each trade. Kept in the database file."""
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", owner):
+            raise HTTPException(422, "an account name is letters, numbers, - and _ only")
+        with lock:
+            return {"owner": owner, "days": ledger.days(owner)}
 
     @app.get("/api/worlds/{world_id}")
     def get_world(world_id: str) -> dict[str, Any]:
@@ -647,6 +675,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             result = pw.advance(request.seconds, pause_on_fill=request.pause_on_fill)
             if result.finished:
                 closes[pw.owner] = pw.world.prices()
+                save_day(pw)
             return {
                 **new_events(pw, before),
                 "now": result.now,
@@ -683,6 +712,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def end_world(world_id: str) -> dict[str, Any]:
         with lock:
             pw = find_world(world_id)
+            save_day(pw)
             pw.end_early()
             worlds.pop(world_id, None)
             return {"ended": True, "snapshot": world_json(world_id, pw)}

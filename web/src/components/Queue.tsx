@@ -1,5 +1,6 @@
 import { money, rupees } from "../lib/format";
 import type { Level, MarketState, Side } from "../lib/market";
+import { lastTradeText } from "../lib/narrate";
 
 const LEVELS = 5;
 const MIN_BLOCK = 14;
@@ -8,10 +9,11 @@ interface Props {
   state: MarketState;
   followed: number | null;
   onFollow: (id: number | null) => void;
+  symbol?: string; // the company, so the last trade can say which shares changed hands
   mine?: string; // the person's own account, so their orders stand out in the queue
 }
 
-export function Queue({ state, followed, onFollow, mine }: Props) {
+export function Queue({ state, followed, onFollow, symbol, mine }: Props) {
   const asks = state.depth("SELL", LEVELS).reverse(); // worst price at the top, best next to the middle
   const bids = state.depth("BUY", LEVELS);
   const biggest = Math.max(1, ...asks.map((l) => l.quantity), ...bids.map((l) => l.quantity));
@@ -93,6 +95,9 @@ export function Queue({ state, followed, onFollow, mine }: Props) {
       <p className="muted lead">
         Each block is one waiting order, and a wider block means more shares. The prices in the middle are the ones
         closest to a deal, and the order nearest the middle goes first.
+      </p>
+      <p className="lasttrade" aria-live="polite">
+        {state.lastTrade === null ? "No trade yet." : <><b>Last trade:</b> {lastTradeText(state.lastTrade, symbol)}</>}
       </p>
       <div className="row head">
         <div className="buyer-title">Buyers, waiting to buy</div>

@@ -33,7 +33,7 @@ export default function App() {
   const trades = useMemo(() => tradeSeries(events), [version]);
   const series = useMemo(() => priceSeries(events, Math.max(duration / 300, 1)), [version, duration]);
   const biggest = useMemo(() => biggestMove(series, 10_000_000), [series]);
-  const lines = useMemo(() => narrate(events, ends, count), [events, ends, count, version]);
+  const lines = useMemo(() => narrate(events, ends, count, 4, undefined, summary?.instrument.symbol), [events, ends, count, version]);
   const nowUs = position >= 0 ? times[position] ?? 0 : 0;
 
   const seek = (timeUs: number) => {
@@ -50,10 +50,10 @@ export default function App() {
   const tabs = (
     <nav className="tabs" aria-label="Screens">
       <button className={`tab${view === "day" ? " on" : ""}`} aria-pressed={view === "day"} onClick={() => setView("day")}>
-        The day
+        Watch a day
       </button>
       <button className={`tab${view === "auction" ? " on" : ""}`} aria-pressed={view === "auction"} onClick={() => setView("auction")}>
-        The opening auction
+        Opening auction
       </button>
       <button className={`tab${view === "practice" ? " on" : ""}`} aria-pressed={view === "practice"} onClick={() => setView("practice")}>
         Practice
@@ -61,12 +61,29 @@ export default function App() {
     </nav>
   );
 
-  if (view === "practice") return <PracticeView tabs={tabs} />;
+  // The practice screen is only hidden, never closed, so a day in progress (and its history) is still there when you come back.
+  const [visitedPractice, setVisitedPractice] = useState(false);
+  useEffect(() => {
+    if (view === "practice") setVisitedPractice(true);
+  }, [view]);
+  const practice = visitedPractice || view === "practice" ? (
+    <div hidden={view !== "practice"}>
+      <PracticeView tabs={tabs} active={view === "practice"} />
+    </div>
+  ) : null;
+  if (view === "practice") return practice;
 
   return (
+    <>
+    {practice}
     <div className="app">
       <Header state={state} summary={summary} />
       {tabs}
+      <p className="lesson" role="note">
+        {view === "auction"
+          ? "A lesson, not your account. Before 9:15 the exchange does not trade one order at a time. It collects orders for 15 minutes, then finds the single price at which the most shares can change hands, and everyone matched gets that price. That price is where the day opens. Here is how it is worked out for UDHAAR."
+          : "A lesson, not your account. This replays one made-up company, UDHAAR, and shows the queue of buyers and sellers behind every price. Nothing you do here uses your money. To trade across all twelve companies, go to Practice."}
+      </p>
       {view === "auction" ? (
         <AuctionView events={events} version={version} instrument={summary?.instrument ?? null} onBack={() => setView("day")} />
       ) : (
@@ -104,7 +121,7 @@ export default function App() {
         onBiggest={() => biggest && jumpTo(biggest.to.t)}
       />
       <main className="main">
-        <Queue state={state} followed={followed} onFollow={setFollowed} />
+        <Queue state={state} followed={followed} onFollow={setFollowed} symbol={summary?.instrument.symbol} />
         <JustHappened lines={lines} slow={run.status === "playing"} />
       </main>
         </>
@@ -128,5 +145,6 @@ export default function App() {
         )}
       </footer>
     </div>
+    </>
   );
 }

@@ -12,10 +12,12 @@ are the other side of everything.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from marketlab.ledger.names import (
     CAPITAL,
@@ -98,6 +100,32 @@ class Ledger:
             )
         for number in range(have, len(MIGRATIONS)):
             self._conn.executescript(f"BEGIN;\n{MIGRATIONS[number]}\nPRAGMA user_version = {number + 1};\nCOMMIT;")
+
+    # -- the history of days played --------------------------------------------------------------------------
+
+    def record_day(
+        self, owner: str, seed: int, *, finished: bool, closes: dict[str, int], summary: dict[str, Any]
+    ) -> int:
+        """Remember one practice day: what it was, how it ended and every trade the person made."""
+        cursor = self._conn.execute(
+            "INSERT INTO days (owner, seed, finished, closes, summary) VALUES (?, ?, ?, ?, ?)",
+            (owner, seed, int(finished), json.dumps(closes), json.dumps(summary)),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def days(self, owner: str) -> list[dict[str, Any]]:
+        """The days this person has played, newest first."""
+        rows = self._conn.execute(
+            "SELECT id, seed, played_at, finished, summary FROM days WHERE owner = ? ORDER BY id DESC", (owner,)
+        ).fetchall()
+        return [{"id": r[0], "seed": r[1], "played_at": r[2], "finished": bool(r[3]), **json.loads(r[4])} for r in rows]
+
+    def last_closes(self, owner: str) -> dict[str, int] | None:
+        """The closing prices of the last day this person played to the end, so the next day opens there."""
+        row = self._conn.execute(
+            "SELECT closes FROM days WHERE owner = ? AND finished = 1 ORDER BY id DESC LIMIT 1", (owner,)
+        ).fetchone()
+        return None if row is None else {k: int(v) for k, v in json.loads(row[0]).items()}
 
     @contextmanager
     def batch(self) -> Iterator[None]:

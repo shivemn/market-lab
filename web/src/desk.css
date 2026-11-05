@@ -214,3 +214,16 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 @media (max-width: 600px) {
   .board { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* the latest trade, one fixed-height line so nothing moves when it changes */
+.lasttrade { margin: 0 0 6px; min-height: 20px; line-height: 20px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lasttrade b { color: var(--ink); font-weight: 600; }
+
+/* saved days */
+.history { display: grid; gap: 8px; }
+.past-day { border: 1px solid var(--row-line); border-radius: 6px; padding: 8px 12px; background: var(--card, transparent); }
+.past-day summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+.past-day .pd-when { font-weight: 600; }
+.past-day .fills { margin-top: 8px; }
+
+.lesson { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--muted); background: var(--shade); font-size: 14px; max-width: 80ch; }

@@ -152,8 +152,7 @@ Phase 1 checks that the market looks plausible, not that it is realistic: spread
 4. **Strategy interface (designed now, used in Phase 2):**
    ```python
    class Strategy:
-       def on_event(self, event: Event) -> list[Command]:
-           ...
+       def on_event(self, event: Event) -> list[Command]: ...
    ```
    A strategy receives events and returns commands. It never touches the book directly, so the same strategy code works in the live simulation and in the backtester.
 
@@ -400,5 +399,11 @@ invariant from Week 9a; refusals do not change the day.
     q = free-float shares (cap-weighted), 1 (price-weighted) or 1/(n x base price) (equal-weighted); `after_split` and
     `rebalance` keep the level unchanged. Days open at the previous close and the index carries on. Per-company profit
     and loss uses the average-cost method and adds up exactly to the account's total change (tested). Noise traders pull
-    quotes more than 0.4% from the price, which removes stale-order spikes. The server keeps closing prices in memory
-    only. Day and Opening-auction tabs still use one company (UDHAAR).
+    quotes more than 0.4% from the price, which removes stale-order spikes. Day and Opening-auction tabs are lessons on one
+    company (UDHAAR) and never touch the account.
+19. **Saved history and the market clock:** every practice day that is played to the close (or left after trading) is
+    written to a `days` table (migration 2: owner, seed, closing prices, result, per-company result, every fill), outside
+    the append-only books, so history and the next day's opening prices survive a restart. `GET /api/accounts/{owner}/days`
+    serves it. The simulated day is shown on the real clock: the first simulated minute is the 9:00-9:15 pre-open and the
+    next ten are 9:15-15:30 (`clock()` in `lib/format.ts`). The Practice screen is hidden, not unmounted, when you visit
+    another tab, and the day pauses while you are away. Trade text names the company ("13 UDHAAR shares").

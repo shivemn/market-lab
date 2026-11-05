@@ -3,6 +3,7 @@ import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
 import { tradeSeries } from "../lib/series";
 import { useStatement } from "../lib/useStatement";
+import { useDays } from "../lib/useDays";
 import { useWorld } from "../lib/useWorld";
 import type { IndexKind, WorldRequest } from "../lib/world";
 import { compare, indexPercent, sign, worldDay } from "../lib/worldview";
@@ -10,6 +11,7 @@ import { AccountStrip } from "./AccountStrip";
 import { Activity, ActivityTab } from "./Activity";
 import { CompaniesPanel } from "./CompaniesPanel";
 import { DaySummary, PastDay } from "./DaySummary";
+import { HistoryPanel } from "./HistoryPanel";
 import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
 import { MarketBoard } from "./MarketBoard";
@@ -22,8 +24,9 @@ import { WorldHeader } from "./WorldHeader";
 type Practice = ReturnType<typeof useWorld>;
 type PlanName = WorldRequest["plan"];
 
-function StartCard({ practice, again }: { practice: Practice; again?: boolean }) {
+function StartCard({ practice, again, refresh }: { practice: Practice; again?: boolean; refresh?: unknown }) {
   const [owner, setOwner] = useState("you");
+  const saved = useDays(owner, refresh);
   const [seed, setSeed] = useState(7);
   const [plan, setPlan] = useState<PlanName>("zero");
   const valid = /^[A-Za-z0-9_-]{1,32}$/.test(owner);
@@ -67,6 +70,12 @@ function StartCard({ practice, again }: { practice: Practice; again?: boolean })
           {practice.error}
         </p>
       )}
+      {!again && (
+        <>
+          <h3 className="sub">Your past days</h3>
+          <HistoryPanel days={saved.days} failed={saved.failed} preOpenUs={60_000_000} closeUs={660_000_000} />
+        </>
+      )}
     </section>
   );
 }
@@ -104,7 +113,7 @@ function Coach() {
   );
 }
 
-export function PracticeView({ tabs }: { tabs: ReactNode }) {
+export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolean }) {
   const world = useWorld();
   const { events, ends, touched, version, snapshot, first } = world;
   const [selected, setSelected] = useState("UDHAAR");
@@ -116,6 +125,13 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
   const lastRequest = useRef<WorldRequest | null>(null);
   const summarised = useRef<string | null>(null);
 
+  // leaving this screen pauses the day (the server keeps no clock, so nothing runs behind your back); it stays as it was
+  const { status, togglePause } = world;
+  useEffect(() => {
+    if (!active && status === "playing") togglePause();
+  }, [active, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saved = useDays(snapshot?.owner ?? "", `${snapshot?.id}:${world.status}`);
+
   const company = snapshot?.companies.find((c) => c.symbol === selected) ?? snapshot?.companies[0] ?? null;
   const symbol = company?.symbol ?? selected;
   const state = useMemo(() => fold(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,8 +140,8 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
   const mine = useMemo<ActivityItem[]>(() => {
     const all: ActivityItem[] = [];
     [...touched].forEach((s, i) => {
-      for (const item of myActivity(events[s] ?? [], ends[s] ?? [], owner)) {
-        all.push({ ...item, key: item.key * 16 + i, text: `${s}: ${item.text}` });
+      for (const item of myActivity(events[s] ?? [], ends[s] ?? [], owner, s)) {
+        all.push({ ...item, key: item.key * 16 + i });
       }
     });
     return all.sort((a, b) => b.at - a.at || b.key - a.key);
@@ -181,7 +197,7 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
       <WorldHeader snapshot={snapshot} kind={kind} />
       {tabs}
       {snapshot === null || first === null || company === null ? (
-        <StartCard practice={{ ...world, start: startDay }} />
+        <StartCard practice={{ ...world, start: startDay }} refresh={world.status} />
       ) : (
         <>
           <AccountStrip snapshot={snapshot} first={first} kind={kind} />
@@ -240,6 +256,7 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
                   companies: <CompaniesPanel snapshot={snapshot} />,
                   index: <IndexPanel snapshot={snapshot} kind={kind} onKind={setKind} />,
                   statement: <StatementPanel statement={statement} failed={failed} prices={snapshot.prices} />,
+                  history: <HistoryPanel days={saved.days} failed={saved.failed} preOpenUs={snapshot.open_at} closeUs={snapshot.close_at} />,
                 }}
               />
             </div>
@@ -256,6 +273,7 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
               />
               <Ladder
                 state={state}
+                symbol={symbol}
                 mine={snapshot.portfolio.open_orders.filter((o) => o.symbol === symbol)}
                 onPick={(price) => setPick({ price, nonce: (pick?.nonce ?? 0) + 1 })}
               />
@@ -287,7 +305,7 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
           )}
           <details className="panel picker">
             <summary>Start a new day</summary>
-            <StartCard practice={{ ...world, start: startDay }} again />
+            <StartCard practice={{ ...world, start: startDay }} again refresh={`${snapshot.id}:${world.status}`} />
           </details>
           <p className="muted small foot-note">
             Day number {snapshot.config.seed}. The same day number gives the same market until you place an order; after that

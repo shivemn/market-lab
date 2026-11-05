@@ -14,10 +14,10 @@ export interface ActivityItem {
   text: string;
 }
 
-const shares = (n: number) => `${n} ${n === 1 ? "share" : "shares"}`;
+const shares = (n: number, symbol?: string) => `${n} ${symbol ? `${symbol} ` : ""}${n === 1 ? "share" : "shares"}`;
 
 /** "Bought 5 shares at ₹2,511.83 on average", from the trades one command caused. */
-function fillText(trades: readonly Trade[], me: string): string {
+function fillText(trades: readonly Trade[], me: string, symbol?: string): string {
   const parts: string[] = [];
   for (const [verb, mine] of [
     ["Bought", trades.filter((t) => t.buy_account_id === me)],
@@ -29,13 +29,13 @@ function fillText(trades: readonly Trade[], me: string): string {
     const average = Math.round(value / quantity);
     const low = Math.min(...mine.map((t) => t.price));
     const high = Math.max(...mine.map((t) => t.price));
-    parts.push(`${verb} ${shares(quantity)} at ${rupees(average)}${low === high ? "" : " on average"}`);
+    parts.push(`${verb} ${shares(quantity, symbol)} at ${rupees(average)}${low === high ? "" : " on average"}`);
   }
   return `${parts.join(" and ")}.`;
 }
 
 /** Everything that happened to the person's own orders, one line per thing, newest first. */
-export function myActivity(events: readonly MarketEvent[], ends: readonly number[], me: string): ActivityItem[] {
+export function myActivity(events: readonly MarketEvent[], ends: readonly number[], me: string, symbol?: string): ActivityItem[] {
   const items: ActivityItem[] = [];
   let from = 0;
   for (const end of ends) {
@@ -46,19 +46,19 @@ export function myActivity(events: readonly MarketEvent[], ends: readonly number
       if (e.type === "OrderAccepted" && e.account_id === me) {
         const side = e.side === "BUY" ? "Buy" : "Sell";
         const price = e.limit_price === null ? "at the best price" : `at ${rupees(e.limit_price)}`;
-        items.push({ key: e.seq, at: e.sim_time, kind: "placed", text: `${side} ${shares(e.quantity)} ${price} placed.` });
+        items.push({ key: e.seq, at: e.sim_time, kind: "placed", text: `${side} ${shares(e.quantity, symbol)} ${price} placed.` });
       } else if (e.type === "OrderCancelled" && isMine(e.order_id)) {
         const text =
           e.reason === "USER"
-            ? `You cancelled an order (${shares(e.quantity)} had not traded).`
-            : `${shares(e.quantity)} of your order found no match and was dropped.`;
+            ? `You cancelled an order (${shares(e.quantity, symbol)} had not traded).`
+            : `${shares(e.quantity, symbol)} of your order found no match and was dropped.`;
         items.push({ key: e.seq, at: e.sim_time, kind: "cancelled", text });
       } else if (e.type === "OrderExpired" && isMine(e.order_id)) {
-        items.push({ key: e.seq, at: e.sim_time, kind: "expired", text: `${shares(e.quantity)} of your order expired at the close.` });
+        items.push({ key: e.seq, at: e.sim_time, kind: "expired", text: `${shares(e.quantity, symbol)} of your order expired at the close.` });
       }
     }
     if (trades.length > 0) {
-      items.push({ key: trades[0].seq, at: trades[trades.length - 1].sim_time, kind: "filled", text: fillText(trades, me) });
+      items.push({ key: trades[0].seq, at: trades[trades.length - 1].sim_time, kind: "filled", text: fillText(trades, me, symbol) });
     }
   }
   return items.reverse();

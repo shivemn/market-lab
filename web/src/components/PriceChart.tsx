@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { changeWords, clock, dayClock, rupees } from "../lib/format";
+import { changeWords, clock, rupees } from "../lib/format";
 import type { MarketState } from "../lib/market";
 import { extremes, Point, priceAxis, TradePoint, tradesUpTo, volumeSlices } from "../lib/series";
 import { useWidth } from "../lib/useWidth";
@@ -63,10 +63,12 @@ export function PriceChart(p: Props) {
   const tallest = Math.max(1, ...bars);
   const barWidth = plotWidth / SLICES;
 
-  const baseTick = duration > 20 * 60_000_000 ? 300_000_000 : 60_000_000;
-  const tickEvery = baseTick * Math.max(1, Math.ceil(64 / ((plotWidth * baseTick) / duration)));
-  const ticks: number[] = [];
-  for (let t = 0; t <= duration; t += tickEvery) ticks.push(t);
+  // time axis on the market clock: 9:00 pre-open, 9:15 open, then every hour (every two on a narrow screen)
+  const ticks: { t: number; label: string }[] = narrow ? [{ t: p.preOpenUs, label: "9:15" }] : [{ t: 0, label: "9:00" }, { t: p.preOpenUs, label: "9:15" }];
+  for (let hour = 10; hour <= 15; hour += narrow ? 2 : 1) {
+    ticks.push({ t: p.preOpenUs + ((hour * 60 - 555) / 375) * (duration - p.preOpenUs), label: `${hour}:00` });
+  }
+  ticks.push({ t: duration, label: "15:30" });
 
   const now = past.length > 0 ? past[past.length - 1] : null;
   const cursorX = x(p.nowUs);
@@ -79,8 +81,8 @@ export function PriceChart(p: Props) {
     p.state.session === "CLOSED" && p.state.eventsApplied === 0
       ? "Waiting for the day to start."
       : now === null
-        ? `${dayClock(p.nowUs)} into the day. Nothing has traded yet, because the market is still collecting orders before it opens.`
-        : `${dayClock(p.nowUs)} into the day, the latest trade was at ${rupees(now.price)}: ${changeWords(
+        ? `It is ${clock(p.nowUs, p.preOpenUs, duration)}. Nothing has traded yet, because the market is still collecting orders before it opens at 9:15.`
+        : `At ${clock(p.nowUs, p.preOpenUs, duration)} the latest trade was at ${rupees(now.price)}: ${changeWords(
             now.price,
             p.referencePrice,
           ).toLowerCase()} from yesterday's close. So far ${p.state.trades.toLocaleString("en-IN")} trades, ${p.state.volume.toLocaleString("en-IN")} shares changed hands.`;
@@ -91,7 +93,7 @@ export function PriceChart(p: Props) {
         {p.practice ? (
           <h2 id="chart-title" className="chart-title">
             {p.symbol} through the day
-            <span className="clock"> {clock(p.nowUs)} of {clock(duration)} · {p.state.trades.toLocaleString("en-IN")} trades</span>
+            <span className="clock"> {clock(p.nowUs, p.preOpenUs, duration)} · market closes at {clock(duration, p.preOpenUs, duration)} · {p.state.trades.toLocaleString("en-IN")} trades</span>
           </h2>
         ) : (
           <div>
@@ -257,11 +259,11 @@ export function PriceChart(p: Props) {
           <line x1={left} x2={left + plotWidth} y1={VOLUME_BOTTOM} y2={VOLUME_BOTTOM} stroke="var(--ink)" />
 
           {/* time axis */}
-          {ticks.map((t) => (
+          {ticks.map(({ t, label }) => (
             <g key={t}>
               <line x1={x(t)} x2={x(t)} y1={VOLUME_BOTTOM} y2={VOLUME_BOTTOM + 6} stroke="var(--muted)" />
               <text x={Math.min(x(t), left + plotWidth - 14)} y={VOLUME_BOTTOM + 22} textAnchor="middle" className="tick">
-                {Math.round(t / 60_000_000)}{narrow ? "" : " min"}
+                {label}
               </text>
             </g>
           ))}
@@ -291,7 +293,7 @@ export function PriceChart(p: Props) {
           value={Math.min(p.nowUs, duration)}
           onChange={(e) => p.onSeek(Number(e.target.value))}
           aria-label="Move through the day"
-          aria-valuetext={`${dayClock(p.nowUs)} into the day`}
+          aria-valuetext={`${clock(p.nowUs, p.preOpenUs, duration)} on the market clock`}
         />
         )}
       </div>

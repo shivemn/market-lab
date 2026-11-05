@@ -98,3 +98,18 @@ describe("narrate for a person trading", () => {
     expect(narrate([joined], [1], 1, 1, "you")).toEqual(["You joined the queue to buy 10 shares at ₹2,490.00."]);
   });
 });
+
+import { lastTradeText, shares as sharesText } from "./narrate";
+
+describe("naming the company", () => {
+  it("says which company's shares changed hands", () => {
+    expect(sharesText(13, "UDHAAR")).toBe("13 UDHAAR shares");
+    expect(sharesText(1, "UDHAAR")).toBe("1 UDHAAR share");
+    expect(sharesText(2)).toBe("2 shares");
+  });
+  it("describes the last trade in one line", () => {
+    expect(lastTradeText({ price: 164235, quantity: 13, aggressor: "BUY" }, "UDHAAR")).toBe(
+      "13 UDHAAR shares changed hands at ₹1,642.35 (a buyer paid the seller's price)",
+    );
+  });
+});

@@ -82,10 +82,10 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 379 tests
+pytest                       # 384 tests
 ruff check .
 mypy
-cd web; npm test; cd ..      # 61 tests
+cd web; npm test; cd ..      # 63 tests
 ```
 
 ## How fast is it

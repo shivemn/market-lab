@@ -363,6 +363,8 @@ class PracticeWorld:
         for symbol, gateway in self.gateways.items():
             gateway.settle(self.world.sims[symbol].events)
         self._baseline = {s: p.net_exact for s, p in self.positions(self.world.reference_prices()).items()}
+        self.start_worth = self.worth()
+        self.start_charges = self.statement().total_charges
 
     @property
     def now(self) -> int:
@@ -471,6 +473,45 @@ class PracticeWorld:
     def today(self, positions: dict[str, Position]) -> dict[str, int]:
         """Each company's net result since this day began."""
         return {s: round(p.net_exact - self._baseline.get(s, Fraction(0))) for s, p in positions.items()}
+
+    def fills(self) -> list[dict[str, object]]:
+        """Every trade this person made today, in order: which company, bought or sold, how many, at what price."""
+        out: list[dict[str, object]] = []
+        for symbol, sim in self.world.sims.items():
+            for e in sim.events:
+                if isinstance(e, Trade) and self.owner in (e.buy_account_id, e.sell_account_id):
+                    side = "BUY" if e.buy_account_id == self.owner else "SELL"
+                    out.append(
+                        {"symbol": symbol, "side": side, "quantity": e.quantity, "price": e.price, "at": e.sim_time}
+                    )
+        out.sort(key=lambda f: int(str(f["at"])))
+        return out
+
+    def day_summary(self) -> dict[str, object]:
+        """What the history keeps about a day: the result, how each company did for this person, and every fill."""
+        statement = self.statement()
+        prices = self.world.prices()
+        positions = self.positions(prices, statement)
+        today = self.today(positions)
+        worth = statement.money + sum(q * prices[s] for s, q in statement.holdings if s in prices)
+        indices = self.indices(prices)
+        return {
+            "start_worth": self.start_worth,
+            "end_worth": worth,
+            "result": worth - self.start_worth,
+            "charges": statement.total_charges - self.start_charges,
+            "companies": [
+                {"symbol": c.symbol, "name": c.name, "today": today.get(c.symbol, 0)}
+                for c in CATALOGUE
+                if today.get(c.symbol, 0) != 0
+            ],
+            "index": {
+                kind: {"open": v["open"], "level": v["level"], "change": v["change"]}
+                for kind, v in indices.items()
+                if kind in KINDS
+            },
+            "fills": self.fills(),
+        }
 
     def worth(self) -> int:
         statement, prices = self.statement(), self.world.prices()

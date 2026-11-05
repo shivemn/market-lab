@@ -1,12 +1,14 @@
 import { buildLadder, LadderRow } from "../lib/activity";
 import { money, rupees } from "../lib/format";
 import type { MarketState } from "../lib/market";
+import { lastTradeText } from "../lib/narrate";
 import type { WorldOpenOrder } from "../lib/world";
 import { Help } from "./Help";
 
 interface Props {
   state: MarketState;
   mine: readonly WorldOpenOrder[];
+  symbol?: string;
   levels?: number;
   onPick: (price: number) => void;
 }
@@ -34,7 +36,7 @@ const ghost = (count: number, key: string) =>
   Array.from({ length: Math.max(0, count) }, (_, i) => <div className="lrow ghost" aria-hidden="true" key={`${key}${i}`} />);
 
 /** Who is waiting to trade, as a price ladder: sellers above, buyers below, the gap in between. */
-export function Ladder({ state, mine, levels = 6, onPick }: Props) {
+export function Ladder({ state, mine, symbol, levels = 6, onPick }: Props) {
   const ladder = buildLadder(state, levels, mine);
   const empty = ladder.asks.length === 0 && ladder.bids.length === 0;
   return (
@@ -46,6 +48,9 @@ export function Ladder({ state, mine, levels = 6, onPick }: Props) {
           The bar is how many shares wait at that price. Click a price to use it in your order.
         </Help>
       </div>
+      <p className="lasttrade" aria-live="polite">
+        {state.lastTrade === null ? "No trade yet." : <><b>Last trade:</b> {lastTradeText(state.lastTrade, symbol)}</>}
+      </p>
       {empty ? (
         <p className="muted small">
           {state.session === "CLOSED" && state.eventsApplied > 1

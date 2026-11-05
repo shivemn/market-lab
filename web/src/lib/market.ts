@@ -86,6 +86,7 @@ export class MarketState {
   pendingMarket = new Map<number, number>();
   openingPrice: number | null = null;
   lastPrice: number | null = null;
+  lastTrade: { price: number; quantity: number; aggressor: Side | null } | null = null;
   high: number | null = null;
   low: number | null = null;
   trades = 0;
@@ -146,6 +147,7 @@ export class MarketState {
     this.trades += 1;
     this.volume += event.quantity;
     this.lastPrice = event.price;
+    this.lastTrade = { price: event.price, quantity: event.quantity, aggressor: event.aggressor_side };
     this.high = this.high === null ? event.price : Math.max(this.high, event.price);
     this.low = this.low === null ? event.price : Math.min(this.low, event.price);
     for (const id of [event.buy_order_id, event.sell_order_id]) {

@@ -16,10 +16,24 @@ export const rupees = (paise: number): string => `${paise < 0 ? "-" : ""}₹${mo
 export const signed = (paise: number): string =>
   paise === 0 ? rupees(0) : `${paise > 0 ? "+" : "−"}₹${money(Math.abs(paise))}`;
 
-/** Microseconds into the day as "3:45". */
-export function clock(micros: number): string {
-  const total = Math.max(0, Math.floor(micros / 1_000_000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+/**
+ * The simulated day is short, but it is shown on the real Indian market clock: the pre-open session (the simulated
+ * first minute) is 9:00 to 9:15, and trading (the next ten minutes) is 9:15 to 15:30.
+ */
+const PRE_OPEN_US = 60_000_000;
+const CLOSE_US = 660_000_000;
+const REAL_PRE_OPEN_MIN = 15; // 9:00 -> 9:15
+const REAL_TRADING_MIN = 375; // 9:15 -> 15:30
+
+/** Microseconds into the simulated day as the market clock: "9:15", "12:42", "15:30". */
+export function clock(micros: number, preOpenUs = PRE_OPEN_US, closeUs = CLOSE_US): string {
+  const t = Math.min(Math.max(0, micros), closeUs);
+  const minutes =
+    t < preOpenUs
+      ? 540 + (t / preOpenUs) * REAL_PRE_OPEN_MIN
+      : 555 + ((t - preOpenUs) / (closeUs - preOpenUs)) * REAL_TRADING_MIN;
+  const whole = Math.floor(minutes);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 /** The change since the previous close, short enough for a header: "▲ ₹11.90 (0.48%)". */

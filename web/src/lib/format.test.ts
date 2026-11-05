@@ -43,9 +43,11 @@ describe("short forms for the new screens", () => {
     expect(signed(0)).toBe("₹0.00");
   });
   it("writes the time into the day as minutes and seconds", () => {
-    expect(clock(0)).toBe("0:00");
-    expect(clock(225_000_000)).toBe("3:45");
-    expect(clock(61_900_000)).toBe("1:01");
+    expect(clock(0)).toBe("9:00");
+    expect(clock(60_000_000)).toBe("9:15");
+    expect(clock(660_000_000)).toBe("15:30");
+    expect(clock(225_000_000)).toBe("10:58");
+    expect(clock(61_900_000)).toBe("9:16");
   });
   it("shows the change from the close with an arrow", () => {
     expect(changeShort(251_190, 250_000)).toEqual({ dir: "up", text: "▲ ₹11.90 (0.48%)" });
