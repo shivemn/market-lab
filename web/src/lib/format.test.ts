@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeWords, dayClock, money, rupees } from "./format";
+import { changeShort, changeWords, clock, dayClock, money, rupees, signed } from "./format";
 
 describe("money", () => {
   it("groups digits the Indian way", () => {
@@ -32,5 +32,24 @@ describe("changeWords", () => {
     expect(changeWords(249_470, 250_000)).toBe("Down ₹5.30 (0.21%)");
     expect(changeWords(250_500, 250_000)).toBe("Up ₹5.00 (0.20%)");
     expect(changeWords(250_000, 250_000)).toBe("Unchanged");
+  });
+});
+
+
+describe("short forms for the new screens", () => {
+  it("signs a result with words that do not depend on colour", () => {
+    expect(signed(1230)).toBe("+₹12.30");
+    expect(signed(-400)).toBe("−₹4.00");
+    expect(signed(0)).toBe("₹0.00");
+  });
+  it("writes the time into the day as minutes and seconds", () => {
+    expect(clock(0)).toBe("0:00");
+    expect(clock(225_000_000)).toBe("3:45");
+    expect(clock(61_900_000)).toBe("1:01");
+  });
+  it("shows the change from the close with an arrow", () => {
+    expect(changeShort(251_190, 250_000)).toEqual({ dir: "up", text: "▲ ₹11.90 (0.48%)" });
+    expect(changeShort(249_350, 250_000).dir).toBe("down");
+    expect(changeShort(250_000, 250_000)).toEqual({ dir: "flat", text: "unchanged" });
   });
 });

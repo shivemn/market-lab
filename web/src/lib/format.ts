@@ -12,6 +12,24 @@ export function money(paise: number): string {
 
 export const rupees = (paise: number): string => `${paise < 0 ? "-" : ""}₹${money(Math.abs(paise))}`;
 
+/** "+₹12.30", "−₹4.00" or "₹0.00": a result that says which way it went without relying on colour. */
+export const signed = (paise: number): string =>
+  paise === 0 ? rupees(0) : `${paise > 0 ? "+" : "−"}₹${money(Math.abs(paise))}`;
+
+/** Microseconds into the day as "3:45". */
+export function clock(micros: number): string {
+  const total = Math.max(0, Math.floor(micros / 1_000_000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** The change since the previous close, short enough for a header: "▲ ₹11.90 (0.48%)". */
+export function changeShort(price: number, reference: number): { dir: "up" | "down" | "flat"; text: string } {
+  const diff = price - reference;
+  if (diff === 0) return { dir: "flat", text: "unchanged" };
+  const percent = ((Math.abs(diff) / reference) * 100).toFixed(2);
+  return { dir: diff > 0 ? "up" : "down", text: `${diff > 0 ? "▲" : "▼"} ${rupees(Math.abs(diff))} (${percent}%)` };
+}
+
 /** Microseconds since the start of the day as "6 min 33 s". */
 export function dayClock(micros: number): string {
   const total = Math.floor(micros / 1_000_000);

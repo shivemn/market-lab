@@ -104,7 +104,7 @@ export default function App() {
       />
       <main className="main">
         <Queue state={state} followed={followed} onFollow={setFollowed} />
-        <JustHappened lines={lines} />
+        <JustHappened lines={lines} slow={run.status === "playing"} />
       </main>
         </>
       )}

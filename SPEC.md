@@ -373,3 +373,11 @@ invariant from Week 9a; refusals do not change the day.
     you" by charge line. The result splits into price moves and charges. Holdings are valued at the last traded price
     (the previous close before any trade). Tests include 15 random days reconciled against the live portfolio, and two
     deliberately broken versions (wrong sign on charges, buy and sell swapped) that the tests catch.
+15. **Practice screen redesign (pass 1):** one layout, three looks (Desk, Terminal, Notebook) set by tokens in
+    `theme.css`. The account (worth, result, cash, shares, charges paid) is always visible at the top. Trading sits on
+    one side: order ticket, a clickable price ladder (click a price to use it), and waiting orders. The chart has no
+    explaining paragraph; short "?" notes replace paragraphs. "What just happened" is replaced by a permanent log of the
+    person's own orders and fills, and a trade tape that refreshes at most once a second while the day runs (the Day
+    tab's feed is slowed the same way). The Day and Opening auction tabs take the new themes and header but keep their
+    old layout for now.
+

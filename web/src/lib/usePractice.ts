@@ -114,10 +114,10 @@ export function usePractice() {
           take(reply);
           if (reply.finished) {
             setStatus("done");
-            setNotice("The market has closed for the day. Orders still waiting expired and their money came back.");
+            setNotice("The market has closed. Orders still waiting expired and their money came back.");
           } else if (reply.stopped_for_fill) {
             setStatus("paused");
-            setNotice("One of your orders traded, so the day is paused. Look at your portfolio, then press play to carry on.");
+            setNotice("Your order traded, so the day is paused. Press play to carry on.");
           }
         })
         .catch((problem: unknown) => {

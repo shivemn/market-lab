@@ -1,0 +1,103 @@
+/* Three looks for one layout. Each sets the same tokens, so every screen follows. */
+
+:root,
+:root[data-theme="desk"] {
+  --ground: #edf0f4;
+  --surface: #ffffff;
+  --line: #ccd3dc;
+  --row-line: #e5e9ef;
+  --ink: #111b2b;
+  --muted: #4b586b;
+  --buy: #1c4fd1;
+  --buy-soft: #e0e8fb;
+  --sell: #d4630f;
+  --sell-soft: #fbe6d4;
+  --sell-text: #8f4207;
+  --you: #f2b705;
+  --shade: #e3e8ee;
+  --trade-fill: #bfd8cc;
+  --up: #0c7a43;
+  --down: #b42318;
+  --radius: 4px;
+  --on-buy: #ffffff;
+  --on-sell: #1a1a1a;
+  --font-ui: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --paper: none;
+  color-scheme: light;
+}
+
+:root[data-theme="terminal"] {
+  --ground: #080c11;
+  --surface: #0f151c;
+  --line: #28333f;
+  --row-line: #1a232d;
+  --ink: #e4ebf2;
+  --muted: #94a3b3;
+  --buy: #5a9bff;
+  --buy-soft: #12294a;
+  --sell: #ff9a47;
+  --sell-soft: #3a2410;
+  --sell-text: #ffb374;
+  --you: #ffd43b;
+  --shade: #18212b;
+  --trade-fill: #1f3a30;
+  --up: #3ddc84;
+  --down: #ff6b6b;
+  --radius: 2px;
+  --on-buy: #06101f;
+  --on-sell: #1a1a1a;
+  --font-ui: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --paper: none;
+  color-scheme: dark;
+}
+
+:root[data-theme="notebook"] {
+  --ground: #e9eef5;
+  --surface: #fbfcfe;
+  --line: #b9c6d8;
+  --row-line: #dbe4ef;
+  --ink: #1a2747;
+  --muted: #475674;
+  --buy: #2a4fb8;
+  --buy-soft: #dde6f8;
+  --sell: #c25a1a;
+  --sell-soft: #f8e4d3;
+  --sell-text: #8a3f0d;
+  --you: #ffe14d;
+  --shade: #e0e8f2;
+  --trade-fill: #c7dccf;
+  --up: #1d6f42;
+  --down: #a8281e;
+  --radius: 3px;
+  --on-buy: #ffffff;
+  --on-sell: #1a1a1a;
+  --font-ui: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-head: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-num: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --paper: linear-gradient(#d3deec 1px, transparent 1px), linear-gradient(90deg, #d3deec 1px, transparent 1px);
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--ground);
+  background-image: var(--paper);
+  background-size: 24px 24px;
+}
+h1, h2, h3, .brand-name { font-family: var(--font-head); }
+:root[data-theme="notebook"] .brand-name,
+:root[data-theme="notebook"] h2 { font-weight: 700; }
+
+/* flatter panels instead of soft white cards */
+.card, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; }
+.btn, .seg, .tab, .field input, .field select, .block, .preview, .error, .callout, .notice { border-radius: var(--radius); }
+.btn, .tab, .seg { border-width: 1px; }
+.field input, .field select { border-width: 1px; background: var(--surface); }
+.tab { border-radius: var(--radius); font-size: 15px; min-height: 38px; }
+.round { border-radius: 50%; }
+.chip { border-radius: var(--radius); height: 30px; font-size: 13px; }
+.price, .px, .size, .v, table.statement, table.tape, .t { font-family: var(--font-num); font-variant-numeric: tabular-nums; }

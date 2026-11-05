@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { changeWords, dayClock, rupees } from "../lib/format";
+import { changeWords, clock, dayClock, rupees } from "../lib/format";
 import type { MarketState } from "../lib/market";
 import { extremes, Point, priceAxis, TradePoint, tradesUpTo, volumeSlices } from "../lib/series";
 import { useWidth } from "../lib/useWidth";
@@ -86,16 +86,22 @@ export function PriceChart(p: Props) {
           ).toLowerCase()} from yesterday's close. So far ${p.state.trades.toLocaleString("en-IN")} trades, ${p.state.volume.toLocaleString("en-IN")} shares changed hands.`;
 
   return (
-    <section className="card chart" aria-labelledby="chart-title">
+    <section className={`${p.practice ? "panel" : "card"} chart`} aria-labelledby="chart-title">
       <div className="chart-head">
-        <div>
-          <h2 id="chart-title">Price of {p.symbol} through the day</h2>
-          <p className="muted lead">
-            {p.practice
-              ? "Every point on the line is a trade between one buyer and one seller. Press play to start the day. You can place an order at any moment, and the day pauses by itself when one of your orders trades."
-              : "Every point on the line is a trade between one buyer and one seller. Press play to watch the day unfold, or drag along the chart to look at any moment."}
-          </p>
-        </div>
+        {p.practice ? (
+          <h2 id="chart-title" className="chart-title">
+            {p.symbol} through the day
+            <span className="clock"> {clock(p.nowUs)} of {clock(duration)} · {p.state.trades.toLocaleString("en-IN")} trades</span>
+          </h2>
+        ) : (
+          <div>
+            <h2 id="chart-title">Price of {p.symbol} through the day</h2>
+            <p className="muted lead">
+              Every point on the line is a trade between one buyer and one seller. Press play to watch the day unfold, or
+              drag along the chart to look at any moment.
+            </p>
+          </div>
+        )}
         <div className="controls">
           <button className="round" onClick={p.onPlayPause} disabled={!canPause} aria-label={playing ? "Pause" : "Play"}>
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
@@ -111,7 +117,7 @@ export function PriceChart(p: Props) {
             onClick={() => p.onSpeed(SPEEDS[(SPEEDS.indexOf(p.speed) + 1) % SPEEDS.length])}
             aria-label={`Playback speed ${p.speed} times. Select to change.`}
           >
-            Speed {p.speed}×
+            {p.speed}×
           </button>
           {!p.practice && (
             <button className="btn" onClick={p.onAuction}>
@@ -147,7 +153,7 @@ export function PriceChart(p: Props) {
           <rect x={left} y={TOP} width={x(p.preOpenUs) - left} height={VOLUME_BOTTOM - TOP} fill="var(--shade)" />
           {!narrow && (
             <text x={left + 8} y={TOP + 18} className="tick">
-              Before open
+              Pre-open
             </text>
           )}
 
@@ -208,13 +214,13 @@ export function PriceChart(p: Props) {
           {high && high.high.price !== high.low.price && (
             <>
               <circle cx={x(high.high.t)} cy={y(high.high.price)} r={4} fill="var(--surface)" stroke="var(--ink)" strokeWidth={2} />
-              {!narrow && (
+              {!narrow && Math.abs(x(high.high.t) - cursorX) > 130 && (
                 <text x={x(high.high.t)} y={Math.max(y(high.high.price) - 10, TOP + 10)} textAnchor="middle" className="tick strong">
                   Highest {rupees(high.high.price)}
                 </text>
               )}
               <circle cx={x(high.low.t)} cy={y(high.low.price)} r={4} fill="var(--surface)" stroke="var(--ink)" strokeWidth={2} />
-              {!narrow && (
+              {!narrow && Math.abs(x(high.low.t) - cursorX) > 130 && (
                 <text x={x(high.low.t)} y={Math.min(y(high.low.price) + 20, PRICE_BOTTOM - 4)} textAnchor="middle" className="tick strong">
                   Lowest {rupees(high.low.price)}
                 </text>
@@ -288,9 +294,15 @@ export function PriceChart(p: Props) {
         />
         )}
       </div>
-      <p className="caption" aria-live="polite">
-        {caption}
-      </p>
+      {p.practice ? (
+        <p className="sr-only" aria-live="off">
+          {caption}
+        </p>
+      ) : (
+        <p className="caption" aria-live="polite">
+          {caption}
+        </p>
+      )}
     </section>
   );
 }

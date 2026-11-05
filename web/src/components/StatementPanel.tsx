@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { dayClock, rupees } from "../lib/format";
-import { getStatement, Statement, StatementRow } from "../lib/practice";
+import { clock, rupees, signed } from "../lib/format";
+import type { Statement, StatementRow } from "../lib/practice";
 
 const LINE_NAMES: Record<string, string> = {
   brokerage: "Broker's fee",
@@ -12,53 +11,24 @@ const LINE_NAMES: Record<string, string> = {
   gst: "GST on fees",
 };
 
-interface Props {
-  sessionId: string;
-  /** Changes whenever the account changes, so the statement is fetched again. */
-  stamp: string;
-  /** The last traded price, so holdings can be valued without asking the server again on every price change. */
-  lastPrice: number | null;
-}
-
 function describeRow(row: StatementRow): string {
   if (row.kind === "buy" || row.kind === "sell") {
     const shares = Math.abs(row.shares_change);
     const each = Math.round(row.value / shares);
-    return `${row.kind === "buy" ? "Bought" : "Sold"} ${shares} ${row.symbol} at ${rupees(each)} a share`;
+    return `${row.kind === "buy" ? "Bought" : "Sold"} ${shares} ${row.symbol} at ${rupees(each)}`;
   }
   return row.memo;
 }
 
-export function StatementPanel({ sessionId, stamp, lastPrice }: Props) {
-  const [statement, setStatement] = useState<Statement | null>(null);
-  const [failed, setFailed] = useState(false);
+interface Props {
+  statement: Statement | null;
+  failed: boolean;
+  lastPrice: number | null;
+}
 
-  useEffect(() => {
-    let current = true;
-    getStatement(sessionId).then(
-      (s) => {
-        if (current) {
-          setStatement(s);
-          setFailed(false);
-        }
-      },
-      () => {
-        if (current) setFailed(true);
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [sessionId, stamp]);
-
-  if (statement === null) {
-    return (
-      <section className="card" aria-labelledby="statement-title">
-        <h2 id="statement-title">What trading has cost you</h2>
-        <p className="muted small">{failed ? "The statement could not be loaded." : "Loading…"}</p>
-      </section>
-    );
-  }
+/** What trading did to the account, and what the charges took. Built by the server from the ledger alone. */
+export function StatementPanel({ statement, failed, lastPrice }: Props) {
+  if (statement === null) return <p className="muted small">{failed ? "The statement could not be loaded." : "Loading…"}</p>;
   const price = lastPrice ?? statement.price;
   const held = statement.holdings[statement.symbol] ?? 0;
   const gain = statement.money + held * price - statement.starting_money;
@@ -66,13 +36,12 @@ export function StatementPanel({ sessionId, stamp, lastPrice }: Props) {
   const lines = Object.entries(statement.charges_by_line).filter(([, amount]) => amount > 0);
   const percent = (statement.charges_basis_points / 100).toFixed(2);
   return (
-    <section className="card" aria-labelledby="statement-title">
-      <h2 id="statement-title">What trading has cost you</h2>
+    <div className="statement-wrap">
       {trades.length === 0 ? (
-        <p className="muted small">No trades yet. Once you trade, every charge appears here, line by line.</p>
+        <p className="muted small">No trades yet. After you trade, every charge shows here, line by line.</p>
       ) : (
-        <>
-          <dl className="folio">
+        <div className="cost-grid">
+          <dl className="mini">
             <div>
               <dt>Bought</dt>
               <dd>{rupees(statement.bought)}</dd>
@@ -82,34 +51,31 @@ export function StatementPanel({ sessionId, stamp, lastPrice }: Props) {
               <dd>{rupees(statement.sold)}</dd>
             </div>
             <div>
-              <dt>Gain or loss from price moves</dt>
-              <dd>{rupees(gain + statement.total_charges)}</dd>
+              <dt>From price moves</dt>
+              <dd>{signed(gain + statement.total_charges)}</dd>
             </div>
             <div>
-              <dt>Charges paid</dt>
-              <dd>{rupees(statement.total_charges)}</dd>
+              <dt>Charges</dt>
+              <dd>{signed(-statement.total_charges)}</dd>
             </div>
             <div className="total">
-              <dt>Your result after charges</dt>
-              <dd>{rupees(gain)}</dd>
+              <dt>Result after charges</dt>
+              <dd>{signed(gain)}</dd>
             </div>
           </dl>
-          <p className="muted small">
-            Charges took {percent}% of everything you traded. Shares you still hold are valued at {rupees(price)}, the
-            last price.
-          </p>
-          <h3 className="sub">Where the charges went</h3>
-          <ul className="orders">
-            {lines.map(([line, amount]) => (
-              <li key={line}>
-                <span>{LINE_NAMES[line] ?? line}</span>
-                <b>{rupees(amount)}</b>
-              </li>
-            ))}
-          </ul>
-        </>
+          <div>
+            <h3 className="sub">Where the charges went ({percent}% of what you traded)</h3>
+            <ul className="orders">
+              {lines.map(([line, amount]) => (
+                <li key={line}>
+                  <span>{LINE_NAMES[line] ?? line}</span>
+                  <b>{rupees(amount)}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
-      <h3 className="sub">Statement</h3>
       <div className="table-scroll" tabIndex={0}>
         <table className="statement">
           <caption className="sr-only">Every change to your money and shares, in order</caption>
@@ -127,10 +93,10 @@ export function StatementPanel({ sessionId, stamp, lastPrice }: Props) {
               const charged = Object.values(row.charges).reduce((a, b) => a + b, 0);
               return (
                 <tr key={i}>
-                  <td>{row.kind === "start" || row.kind === "grant" ? "Start" : dayClock(row.at)}</td>
+                  <td>{row.kind === "start" || row.kind === "grant" ? "Start" : clock(row.at)}</td>
                   <td>{describeRow(row)}</td>
                   <td>{charged > 0 ? rupees(charged) : "–"}</td>
-                  <td>{row.money_change === 0 ? "–" : rupees(row.money_change)}</td>
+                  <td>{row.money_change === 0 ? "–" : signed(row.money_change)}</td>
                   <td>{rupees(row.money_after)}</td>
                 </tr>
               );
@@ -143,6 +109,6 @@ export function StatementPanel({ sessionId, stamp, lastPrice }: Props) {
           The books do not add up: {statement.problems.join("; ")}
         </p>
       )}
-    </section>
+    </div>
   );
 }

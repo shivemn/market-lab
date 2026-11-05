@@ -1,13 +1,16 @@
-import { useMemo, useState } from "react";
-import { rupees } from "../lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { money, rupees } from "../lib/format";
 import type { MarketState, Side } from "../lib/market";
 import { previewOrder } from "../lib/preview";
+import { Help } from "./Help";
 
 interface Props {
   state: MarketState;
   tickSize: number;
   disabled: boolean;
   refusal: string | null;
+  /** A price the person clicked in the ladder; `nonce` changes on every click so the same price can be picked twice. */
+  pick: { price: number; nonce: number } | null;
   onPlace: (side: Side, quantity: number, limitPrice: number | null) => Promise<boolean>;
   onClearRefusal: () => void;
 }
@@ -19,15 +22,25 @@ export function toPaise(text: string): number | null {
   return Math.round(Number(clean) * 100);
 }
 
-export function OrderTicket({ state, tickSize, disabled, refusal, onPlace, onClearRefusal }: Props) {
+const QUICK = [1, 5, 10, 50];
+
+export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace, onClearRefusal }: Props) {
   const [side, setSide] = useState<Side>("BUY");
-  const [kind, setKind] = useState<"market" | "limit">("limit");
-  const [quantityText, setQuantityText] = useState("10");
+  const [kind, setKind] = useState<"market" | "limit">("market");
+  const [quantityText, setQuantityText] = useState("5");
   const [priceText, setPriceText] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (pick === null) return;
+    setKind("limit");
+    setPriceText((pick.price / 100).toFixed(2));
+    onClearRefusal();
+  }, [pick?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const quantity = /^\d+$/.test(quantityText) ? Number(quantityText) : 0;
-  const bestOwn = side === "BUY" ? state.bestBid() : state.bestAsk();
+  const bid = state.bestBid();
+  const ask = state.bestAsk();
   const price = kind === "limit" ? toPaise(priceText) : null;
   const priceProblem =
     kind !== "limit"
@@ -53,10 +66,17 @@ export function OrderTicket({ state, tickSize, disabled, refusal, onPlace, onCle
   };
 
   const ready = quantity > 0 && !priceProblem && !disabled && !busy;
+  const setPrice = (paise: number | null) => paise !== null && setPriceText((paise / 100).toFixed(2));
 
   return (
-    <section className="card ticket" aria-labelledby="ticket-title">
-      <h2 id="ticket-title">Place an order</h2>
+    <section className="panel ticket" aria-labelledby="ticket-title">
+      <div className="ptitle">
+        <h2 id="ticket-title">Place an order</h2>
+        <Help>
+          "Best price now" trades straight away with whoever is waiting, at their prices. "Choose a price" waits in the queue
+          until someone meets your price. Before the open, orders wait for the opening auction.
+        </Help>
+      </div>
       <div className="seg" role="group" aria-label="Buy or sell">
         {(["BUY", "SELL"] as const).map((s) => (
           <button
@@ -73,39 +93,38 @@ export function OrderTicket({ state, tickSize, disabled, refusal, onPlace, onCle
           </button>
         ))}
       </div>
-      <div className="seg" role="group" aria-label="How to price it">
-        <button type="button" className={kind === "limit" ? "on" : ""} aria-pressed={kind === "limit"} onClick={() => setKind("limit")}>
-          Choose a price
-        </button>
+      <div className="seg quiet" role="group" aria-label="How to price it">
         <button type="button" className={kind === "market" ? "on" : ""} aria-pressed={kind === "market"} onClick={() => setKind("market")}>
           Best price now
         </button>
+        <button type="button" className={kind === "limit" ? "on" : ""} aria-pressed={kind === "limit"} onClick={() => setKind("limit")}>
+          Choose a price
+        </button>
       </div>
-      <label className="field">
-        Number of shares
-        <input inputMode="numeric" value={quantityText} onChange={(e) => setQuantityText(e.target.value.replace(/[^\d]/g, ""))} />
-      </label>
+      <div className="field">
+        <label htmlFor="qty">Shares</label>
+        <input id="qty" inputMode="numeric" value={quantityText} onChange={(e) => setQuantityText(e.target.value.replace(/[^\d]/g, ""))} />
+        <div className="chips">
+          {QUICK.map((n) => (
+            <button key={n} type="button" className="chip-btn" onClick={() => setQuantityText(String(n))}>
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
       {kind === "limit" && (
-        <label className="field">
-          Your price per share, in rupees
-          <div className="inline">
-            <input
-              inputMode="decimal"
-              value={priceText}
-              placeholder={bestOwn === null ? "2500.00" : (bestOwn / 100).toFixed(2)}
-              onChange={(e) => setPriceText(e.target.value)}
-            />
-            <button
-              type="button"
-              className="btn"
-              disabled={bestOwn === null}
-              onClick={() => bestOwn !== null && setPriceText((bestOwn / 100).toFixed(2))}
-              title="Use the best price in your own side of the queue"
-            >
-              Use best {side === "BUY" ? "buyer" : "seller"} price
+        <div className="field">
+          <label htmlFor="px">Price per share, ₹</label>
+          <input id="px" inputMode="decimal" value={priceText} placeholder="2500.00" onChange={(e) => setPriceText(e.target.value)} />
+          <div className="chips">
+            <button type="button" className="chip-btn" disabled={bid === null} onClick={() => setPrice(bid)}>
+              Best buyer {bid === null ? "–" : money(bid)}
+            </button>
+            <button type="button" className="chip-btn" disabled={ask === null} onClick={() => setPrice(ask)}>
+              Best seller {ask === null ? "–" : money(ask)}
             </button>
           </div>
-        </label>
+        </div>
       )}
       <p className="preview" aria-live="polite">
         {preview}

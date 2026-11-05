@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { RunRequest } from "../lib/api";
+import { useThrottled } from "../lib/useThrottled";
 import type { Status } from "../lib/useRun";
 
 export function StartPanel({ status, onStart, error }: { status: Status; onStart: (r: RunRequest) => void; error: string | null }) {
@@ -59,7 +60,8 @@ export function HowToRead() {
   );
 }
 
-export function JustHappened({ lines }: { lines: string[] }) {
+export function JustHappened({ lines: live, slow = false }: { lines: string[]; slow?: boolean }) {
+  const lines = useThrottled(live, slow ? 1500 : 0); // at high speed the lines change faster than anyone can read
   return (
     <section className="card grow" aria-labelledby="happened-title">
       <h2 id="happened-title">What just happened</h2>

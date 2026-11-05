@@ -138,9 +138,13 @@ are in [SPEC.md](SPEC.md).
 
 ## Phase 2: practice accounts
 
-![The Practice tab: place an order, watch it join the queue, see what it cost](docs/img/practice-view.png)
+![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-desk.png)
+
+The page has three looks, chosen at the top right: Desk (light), Terminal (dark), and Notebook (graph paper). They share one layout.
 
 ![The statement: every trade, each charge line, and the result after charges](docs/img/statement-view.png)
+
+![The same screen in the Terminal look](docs/img/practice-terminal.png)
 
 Open the **Practice** tab, start a day and press play. You can place an order at any moment. The page tells you in
 plain words what it would do before you send it ("3 shares already waiting at that price would trade before yours"),

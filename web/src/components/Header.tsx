@@ -1,31 +1,32 @@
 import type { RunSummary } from "../lib/api";
-import { changeWords, rupees } from "../lib/format";
+import { changeShort, rupees } from "../lib/format";
 import type { MarketState } from "../lib/market";
+import { ThemeSwitch } from "./ThemeSwitch";
 
-const SESSION_WORDS = { CLOSED: "Market is closed", PRE_OPEN: "Before the open", OPEN: "Market is open" } as const;
+const SESSION_WORDS = { CLOSED: "Closed", PRE_OPEN: "Before the open", OPEN: "Open" } as const;
 
 export function Header({ state, summary }: { state: MarketState; summary: Pick<RunSummary, "instrument"> | null }) {
   const reference = summary?.instrument.reference_price ?? null;
   const price = state.lastPrice ?? state.openingPrice ?? reference;
+  const change = price !== null && reference !== null ? changeShort(price, reference) : null;
   return (
     <header className="top">
       <div className="brand">
         <div className="brand-name">Market Lab</div>
-        <div className="muted small">Practice market. Simulated money only.</div>
+        <div className="muted small">Simulated money, made-up company</div>
       </div>
       <div className="quote">
-        <div>
-          <div className="symbol">{summary?.instrument.symbol ?? "DEMO1"}</div>
-          <div className="muted small">Demo Industries Ltd, a made-up company</div>
-        </div>
-        <div className="price" aria-live="off">
+        <span className="symbol">{summary?.instrument.symbol ?? "DEMO1"}</span>
+        <span className="price" aria-live="off">
           {price === null ? "…" : rupees(price)}
-        </div>
-        {price !== null && reference !== null && (
-          <div className="muted change">{changeWords(price, reference)} from yesterday's close of {rupees(reference)}</div>
-        )}
+        </span>
+        {change && <span className={`change ${change.dir}`}>{change.text}</span>}
+        {reference !== null && <span className="muted small">since yesterday's close of {rupees(reference)}</span>}
       </div>
-      <div className={`chip chip-${state.session.toLowerCase()}`}>{SESSION_WORDS[state.session]}</div>
+      <div className="top-right">
+        <span className={`chip chip-${state.session.toLowerCase()}`}>{SESSION_WORDS[state.session]}</span>
+        <ThemeSwitch />
+      </div>
     </header>
   );
 }
