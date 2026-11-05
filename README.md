@@ -50,9 +50,11 @@ cd ..
 marketlab serve --db practice.db
 ```
 
-Then open http://127.0.0.1:8000. Press play, drag along the chart, or open the "opening auction" tab to see why the
+Then open http://127.0.0.1:8000. Press play, drag along the chart, or open the "Watch a day" and "Opening auction" lessons to see why the
 day opened at its price. In the Practice tab, start a day, press play, and buy a few shares with "Best price now".
 Your account is kept in `practice.db`, so it carries over to the next day; delete the file to start fresh. The server listens on your own computer only and has no login.
+
+To put it online, see [docs/DEPLOY.md](docs/DEPLOY.md) (a `Dockerfile` and `render.yaml` are included). The built page `web/dist` is not in git, so a fresh clone must run `npm run build` first.
 
 If PowerShell refuses to run the activate script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 
@@ -105,6 +107,93 @@ spends its time. A whole day (about 5,000 events) takes roughly 0.135 s on a clo
 of that goes on encoding and hashing the events and on the traders' own decisions. The exchange itself is a small
 share. Making matching faster would not make the simulation noticeably faster.
 
+## System design
+
+One Python process serves the web page and the API. Nothing else is needed to run it: no queue, no separate database
+server, no outside calls.
+
+```mermaid
+flowchart LR
+    subgraph browser["Browser: React + TypeScript"]
+        ui["Screens<br/>Practice, Watch a day, Opening auction"]
+        clock["The clock<br/>asks for time every 250 ms"]
+        fold["fold(events)<br/>chart, queue, ladder, P&L"]
+    end
+    subgraph server["Server: FastAPI, one lock"]
+        api["REST<br/>/api/worlds, /api/runs,<br/>/api/accounts/{owner}/days"]
+    end
+    subgraph world["Practice world, in memory"]
+        sims["12 simulations<br/>one per company, one shared clock"]
+        factors["Market and sector factors<br/>seeded random walks"]
+        gws["12 gateways<br/>reserve, then settle"]
+    end
+    subgraph disk["SQLite file: practice.db"]
+        books["Ledger<br/>accounts, transactions, entries<br/>(append-only)"]
+        days["days table<br/>history and closing prices"]
+    end
+    ui --> clock --> api
+    api --> world
+    factors --> sims
+    sims --> gws --> books
+    api --> days
+    api -- "new events and a snapshot" --> fold --> ui
+```
+
+**The event log is the truth.** Each company's exchange only appends events (order accepted, trade, session changed).
+The order book, the chart, the index and your profit and loss are all worked out by reading events in order. The browser
+runs the same fold as the server, which is how the page and the server can never disagree about the market.
+
+**The browser owns time.** The server has no clock. Every 250 ms the page asks it to move the day forward by
+`speed x 0.25` simulated seconds. The twelve companies move in 0.2-second steps on one clock, so a fill in any
+company can pause the whole day at the exact moment it happens (switchable). This also makes pause, speed and
+scrubbing free, and the same seed always gives the same day.
+
+**An order's path.**
+
+```mermaid
+sequenceDiagram
+    participant P as Page
+    participant S as Server
+    participant G as Gateway
+    participant X as Exchange (one company)
+    participant L as Ledger
+    P->>S: POST /api/worlds/{id}/orders
+    S->>G: place(order)
+    G->>L: reserve the worst-case cost (refused if you cannot afford it)
+    G->>X: NewOrder
+    X-->>G: events (accepted, trades)
+    G->>L: settle each fill, charges as separate entries
+    S-->>P: new events and a snapshot
+    P->>P: fold the events, redraw
+```
+
+**Where the data lives.**
+
+| Data | Where | Kept after a restart |
+| --- | --- | --- |
+| Cash, shares, taxes and charges | SQLite ledger, double-entry, entries cannot be edited or deleted | Yes |
+| Past days, your trades, closing prices | `days` table in the same file (migration 2) | Yes |
+| The day in progress (event logs, open orders) | Server memory, rebuilt from the seed | No: a restart abandons the day |
+| What you see on screen | Folded in the browser from the events | Rebuilt from the server |
+
+**Decisions and what they cost.**
+
+| Decision | Why | The cost |
+| --- | --- | --- |
+| Integer paise and shares everywhere, exact fractions for charges and the index | No rounding drift: your balance equals the sum of your entries | Some formulas need `Fraction` care |
+| Seeded simulation, event log with SHA-256 fingerprint | A bug or a result can be replayed exactly | Floating point is only stable on the same machine and Python |
+| Client-driven clock | Simple server, no streaming, easy pause and speed | The day only moves while a page is asking |
+| One process, one lock, SQLite | Zero setup, easy to reason about | One writer at a time: fine for one learner, not for thousands |
+| Twelve independent exchanges plus shared factors | Index and per-company results behave like a real market | Twelve times the events (roughly 60,000 per day) |
+| History outside the append-only books | The books stay simple and provable | History is a convenience, not an audit record |
+
+**What would change to scale it.** Each person's day is independent, so the natural step is one worker per day with the
+event log published to a stream. That is where a Kafka topic would fit; it is not built, and the current design does
+not need it. The ledger would move to Postgres with the same schema and the same two rules (every transaction sums to
+zero, entries never change).
+
+See [docs/architecture.md](docs/architecture.md) for the single-company details and the exchange rules.
+
 ## Decisions worth knowing about
 
 - **Integers everywhere**, and time is a logical counter in microseconds, not the wall clock. That is what makes a day
@@ -124,7 +213,9 @@ share. Making matching faster would not make the simulation noticeably faster.
   an open order.
 - The price process is not calibrated to any real stock and its volatility is constant, so no strategy can be shown
   to work on it. It is for learning how a market works, not for forecasting.
-- Practice sessions live in server memory and are lost on restart. The ledger (your cash and shares) is not.
+- A day in progress lives in server memory and is abandoned on restart. The ledger (cash and shares) and the saved
+  history are in the database file and are not.
+- There is no login. Anyone who types an account name uses it, so a public copy is a shared demo.
 - Delivery trades only, long only, instant settlement. Charge rates came from secondary sources and need checking
   against a real contract note before anyone relies on them.
 - The test fixture for the page is about 0.8 MB.

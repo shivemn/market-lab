@@ -1,5 +1,7 @@
 # How Market Lab is put together
 
+> The current overview, with the twelve-company world, the saved history and the data table, is the **System design** section of the README. This page keeps the single-company and exchange details.
+
 Everything is built around one idea: **the event log is the truth.** The exchange does not store "the state of the
 market". It appends events (an order was accepted, a trade happened, the session changed), and anything you want to
 know, such as the order book, the price chart or the opening auction, is worked out by reading those events in order.

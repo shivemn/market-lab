@@ -162,8 +162,8 @@ async function call<T>(method: string, url: string, body?: object): Promise<T> {
 }
 
 export const startWorld = (request: WorldRequest) => call<WorldStart>("POST", "/api/worlds", request);
-export const advanceWorld = (id: string, seconds: number) =>
-  call<WorldAdvance>("POST", `/api/worlds/${id}/advance`, { seconds, pause_on_fill: true });
+export const advanceWorld = (id: string, seconds: number, pauseOnFill = true) =>
+  call<WorldAdvance>("POST", `/api/worlds/${id}/advance`, { seconds, pause_on_fill: pauseOnFill });
 export const placeWorldOrder = (id: string, symbol: string, side: Side, quantity: number, limitPrice: number | null) =>
   call<WorldUpdate & { order_id: number }>("POST", `/api/worlds/${id}/orders`, {
     symbol,

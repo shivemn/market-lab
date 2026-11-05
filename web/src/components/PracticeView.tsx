@@ -82,7 +82,15 @@ function StartCard({ practice, again, refresh }: { practice: Practice; again?: b
 
 const COACH_KEY = "marketlab-coach-dismissed";
 
-function Coach() {
+const GUIDE = [
+  "Press play on the chart. The day runs at the speed you choose, and you can pause any time.",
+  "Pick a company on the board, then choose Buy and a number of shares in the order box.",
+  "Your order is in. Watch the Activity tab: the day pauses when it trades, so you never miss it.",
+  "You hold shares now. The strip on top shows your result against the index. At 15:30 you get a summary.",
+];
+
+/** A four-step guide for the first day. It follows what you actually do and stays out of the way afterwards. */
+function Coach({ played, ordered, holding }: { played: boolean; ordered: boolean; holding: boolean }) {
   const [hidden, setHidden] = useState(() => {
     try {
       return window.localStorage.getItem(COACH_KEY) === "1";
@@ -91,23 +99,27 @@ function Coach() {
     }
   });
   if (hidden) return null;
+  const step = holding ? 3 : ordered ? 2 : played ? 1 : 0;
+  const dismiss = () => {
+    setHidden(true);
+    try {
+      window.localStorage.setItem(COACH_KEY, "1");
+    } catch {
+      // it just comes back next visit
+    }
+  };
   return (
-    <div className="coach" role="note">
+    <div className="coach" role="note" aria-label="First day guide">
+      <ol className="coach-steps" aria-hidden="true">
+        {GUIDE.map((_, i) => (
+          <li key={i} className={i < step ? "done" : i === step ? "now" : ""} />
+        ))}
+      </ol>
       <span>
-        <b>1</b> Press play. <b>2</b> Pick a company, then choose buy or sell and a number of shares. <b>3</b> Compare yourself with the index.
+        <b>Step {step + 1} of {GUIDE.length}.</b> {GUIDE[step]}
       </span>
-      <button
-        className="btn small-btn"
-        onClick={() => {
-          setHidden(true);
-          try {
-            window.localStorage.setItem(COACH_KEY, "1");
-          } catch {
-            // it just comes back next visit
-          }
-        }}
-      >
-        Got it
+      <button className="btn small-btn" onClick={dismiss}>
+        {step === GUIDE.length - 1 ? "Got it" : "Skip the guide"}
       </button>
     </div>
   );
@@ -201,7 +213,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
       ) : (
         <>
           <AccountStrip snapshot={snapshot} first={first} kind={kind} />
-          <Coach />
+          <Coach played={world.played} ordered={touched.size > 0} holding={held.length > 0} />
           {world.notice && (
             <p className="notice" role="status">
               <span>{world.notice}</span>
@@ -222,6 +234,10 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
           />
           <div className="desk-grid">
             <div className="desk-main">
+              <label className="toggle">
+                <input type="checkbox" checked={world.pauseOnFill} onChange={(e) => world.setPauseOnFill(e.target.checked)} />
+                Pause the day when one of my orders trades
+              </label>
               <PriceChart
                 symbol={company.name}
                 trades={trades}

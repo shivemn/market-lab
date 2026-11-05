@@ -1,0 +1,7 @@
+# One-click deploy on Render: New > Blueprint > pick this repository.
+services:
+  - type: web
+    name: market-lab
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health

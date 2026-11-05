@@ -46,6 +46,9 @@ export function useWorld() {
   const waiting = useRef(0);
   const worldRef = useRef<WorldSnapshot | null>(null);
   const speedRef = useRef(10);
+  const pauseRef = useRef(true);
+  const [pauseOnFill, setPauseState] = useState(true);
+  const [played, setPlayed] = useState(false); // has the day been played at all (for the first-day guide)
   const token = useRef(0);
 
   const enqueue = useCallback(<T,>(work: () => Promise<T>): Promise<T> => {
@@ -82,6 +85,7 @@ export function useWorld() {
       if (old) void endWorld(old.id).catch(() => undefined);
       data.current = empty();
       touched.current = new Set();
+      setPlayed(false);
       setSnapshot(null);
       setFirst(null);
       setError(null);
@@ -113,7 +117,7 @@ export function useWorld() {
       const open = worldRef.current;
       if (!open || waiting.current > 0) return; // still busy with the last request: skip this beat
       const mine = token.current;
-      void enqueue(() => advanceWorld(open.id, (speedRef.current * TICK_MS) / 1000))
+      void enqueue(() => advanceWorld(open.id, (speedRef.current * TICK_MS) / 1000, pauseRef.current))
         .then((reply) => {
           if (mine !== token.current) return;
           take(reply);
@@ -138,8 +142,14 @@ export function useWorld() {
     if (status === "playing") setStatus("paused");
     else if (status === "paused") {
       setNotice(null);
+      setPlayed(true);
       setStatus("playing");
     }
+  };
+
+  const setPauseOnFill = (value: boolean) => {
+    pauseRef.current = value;
+    setPauseState(value);
   };
 
   const setSpeed = (value: number) => {
@@ -196,6 +206,9 @@ export function useWorld() {
     error,
     refusal,
     notice,
+    pauseOnFill,
+    setPauseOnFill,
+    played,
     clearRefusal: () => setRefusal(null),
     start,
     setSpeed,
