@@ -100,9 +100,11 @@ export function Queue({ state, followed, onFollow, mine }: Props) {
         <div className="seller-title">Sellers, waiting to sell</div>
       </div>
       <div className="ladder">
+        {ghosts(LEVELS - asks.length, "a")}
         {asks.map((level, i) => row(level, "SELL", i === asks.length - 1))}
         <div className="gap">{gap}</div>
         {bids.map((level, i) => row(level, "BUY", i === 0))}
+        {ghosts(LEVELS - bids.length, "b")}
         {asks.length === 0 && bids.length === 0 && state.session !== "CLOSED" && <div className="empty">Nobody is waiting in the queue yet.</div>}
       </div>
       <p className="muted small note" aria-live="polite">
@@ -111,6 +113,10 @@ export function Queue({ state, followed, onFollow, mine }: Props) {
     </section>
   );
 }
+
+/** Empty rows that keep the queue the same height however many prices are waiting, so the page does not jump. */
+const ghosts = (count: number, key: string) =>
+  Array.from({ length: Math.max(0, count) }, (_, i) => <div className="row ghost" aria-hidden="true" key={`${key}${i}`} />);
 
 const aheadText = (shares: number) =>
   shares === 0 ? "First in line" : `${shares} ${shares === 1 ? "share is" : "shares are"} ahead`;

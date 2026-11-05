@@ -45,7 +45,7 @@ h2 { margin: 0; font-size: 20px; }
 .change { font-size: 15px; }
 .identity { text-align: right; }
 .chip { height: 36px; padding: 0 14px; border-radius: 18px; background: var(--ink); color: var(--surface); display: flex; align-items: center; font-size: 14px; font-weight: 700; }
-.chip-pre_open { background: var(--you); color: var(--ink); }
+.chip-pre_open { background: #f2c94c; color: #1a1a1a; }
 .chip-closed { background: var(--shade); color: var(--ink); }
 
 /* layout */

@@ -380,4 +380,17 @@ invariant from Week 9a; refusals do not change the day.
     person's own orders and fills, and a trade tape that refreshes at most once a second while the day runs (the Day
     tab's feed is slowed the same way). The Day and Opening auction tabs take the new themes and header but keep their
     old layout for now.
+16. **End-of-day summary:** when the market closes, a dialog says what the day did to the account in money: worth at the
+    start and the close, the part from price moves, and the part paid in taxes and charges. Shares carried into a new day
+    are valued at where the previous day ended, so the daily results add up to the whole result (checked: -142.69 and
+    +212.00 gave +69.31, the change in worth). The result is on paper while shares are held. The list of past days is kept
+    in the page, not in the database, so it starts again when the page is reloaded.
 
+17. **Steadier page (redesign pass 3):** nothing below a live region may move while the day plays. The queue and the
+    price ladder always draw the same number of rows (empty ones are blank), the recent-trades table keeps 12 rows,
+    the order preview, activity panel and What-just-happened box have a fixed minimum height, the header price line
+    no longer wraps, and the scrollbar space is reserved. Measured with a script: the page height stays the same
+    across a whole replayed day in all three themes. The chart lost its in-plot "Highest", "Lowest", "Market opens at"
+    and "Biggest move" text, which collided with the price line and the cursor label; Open, High, Low and yesterday's
+    close sit in a row above the chart instead, and the markers keep a hover tooltip. The "Before the open" chip in the
+    Terminal theme now has a fixed yellow background with dark text.

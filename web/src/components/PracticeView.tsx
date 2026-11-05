@@ -1,11 +1,13 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { dayResult } from "../lib/dayresult";
 import { fold } from "../lib/market";
-import { PlanName } from "../lib/practice";
+import { PlanName, StartRequest } from "../lib/practice";
 import { tradeSeries } from "../lib/series";
 import { usePractice } from "../lib/usePractice";
 import { useStatement } from "../lib/useStatement";
 import { AccountStrip } from "./AccountStrip";
 import { Activity } from "./Activity";
+import { DaySummary, PastDay } from "./DaySummary";
 import { Header } from "./Header";
 import { Ladder } from "./Ladder";
 import { OpenOrders } from "./OpenOrders";
@@ -105,13 +107,68 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
   const trades = useMemo(() => tradeSeries(events), [version]);
   const stamp = portfolio === null ? "" : [portfolio.cash, portfolio.reserved, portfolio.shares, portfolio.locked].join(":");
   const { statement, failed } = useStatement(session?.id ?? null, stamp);
+  const [tab, setTab] = useState<"activity" | "statement">("activity");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [days, setDays] = useState<PastDay[]>([]);
+  const lastRequest = useRef<StartRequest | null>(null);
+  const chargesBefore = useRef<{ id: string; charges: number } | null>(null);
+  const summarised = useRef<string | null>(null);
+  // Shares carried into a new day are valued at where the last day left them, so the days add up to the whole result.
+  const lastClose = useRef<number | null>(null);
+  const startPrice = useRef<{ id: string; price: number } | null>(null);
+  useEffect(() => {
+    if (session !== null && startPrice.current?.id !== session.id) {
+      startPrice.current = { id: session.id, price: lastClose.current ?? session.instrument.reference_price };
+    }
+  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dayStartPrice =
+    session !== null && startPrice.current?.id === session.id ? startPrice.current.price : session?.instrument.reference_price ?? 0;
+
+  // the charges the account had paid before this day, so the day's own charges can be told apart
+  useEffect(() => {
+    if (statement !== null && session !== null && chargesBefore.current?.id !== session.id) {
+      chargesBefore.current = { id: session.id, charges: statement.total_charges };
+    }
+  }, [statement, session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const today =
+    session !== null && portfolio !== null && practice.startPortfolio !== null && statement !== null && chargesBefore.current !== null
+      ? dayResult(
+          practice.startPortfolio,
+          portfolio,
+          dayStartPrice,
+          state.lastPrice,
+          statement.total_charges - chargesBefore.current.charges,
+        )
+      : null;
+
+  // when the market closes, say how the day went (once the statement has caught up with the final balances)
+  useEffect(() => {
+    if (practice.status !== "done" || session === null || portfolio === null || statement === null || today === null) return;
+    if (summarised.current === session.id || statement.money !== portfolio.cash + portfolio.reserved) return;
+    summarised.current = session.id;
+    setDays((list) => [...list, { seed: session.config.seed, result: today.result }]);
+    setDialogOpen(true);
+  }, [practice.status, session?.id, statement, portfolio]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startDay = (request: StartRequest) => {
+    lastRequest.current = request;
+    lastClose.current = session === null ? null : (state.lastPrice ?? dayStartPrice);
+    return practice.start(request);
+  };
+  const nextDay = () => {
+    if (session === null) return;
+    const last = lastRequest.current ?? { owner: session.owner, seed: session.config.seed, plan: "zero" as PlanName };
+    setDialogOpen(false);
+    void startDay({ ...last, seed: last.seed + 1 });
+  };
 
   return (
     <div className="app desk">
       <Header state={state} summary={session} />
       {tabs}
       {session === null || portfolio === null ? (
-        <StartCard practice={practice} />
+        <StartCard practice={{ ...practice, start: startDay }} />
       ) : (
         <>
           <AccountStrip
@@ -119,12 +176,18 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
             start={practice.startPortfolio}
             statement={statement}
             lastPrice={state.lastPrice}
+            previousClose={dayStartPrice}
             symbol={session.instrument.symbol}
           />
           <Coach />
           {practice.notice && (
             <p className="notice" role="status">
-              {practice.notice}
+              <span>{practice.notice}</span>
+              {practice.status === "done" && today !== null && (
+                <button className="btn small-btn" onClick={() => setDialogOpen(true)}>
+                  See how the day went
+                </button>
+              )}
             </p>
           )}
           <div className="desk-grid">
@@ -159,6 +222,8 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
                 statement={statement}
                 statementFailed={failed}
                 lastPrice={state.lastPrice}
+                tab={tab}
+                onTab={setTab}
               />
             </div>
             <aside className="desk-side" aria-label="Trading">
@@ -180,9 +245,26 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
               {practice.error}
             </p>
           )}
+          {today !== null && (
+            <DaySummary
+              open={dialogOpen}
+              seed={session.config.seed}
+              symbol={session.instrument.symbol}
+              result={today}
+              held={portfolio.shares + portfolio.locked}
+              lastPrice={state.lastPrice ?? session.instrument.reference_price}
+              days={days}
+              onClose={() => setDialogOpen(false)}
+              onStatement={() => {
+                setTab("statement");
+                setDialogOpen(false);
+              }}
+              onNextDay={nextDay}
+            />
+          )}
           <details className="panel picker">
             <summary>Start a new day</summary>
-            <StartCard practice={practice} again />
+            <StartCard practice={{ ...practice, start: startDay }} again />
           </details>
           <p className="muted small foot-note">
             Day number {session.config.seed}. The same day number gives the same market until you place an order; after that

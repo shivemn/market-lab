@@ -142,6 +142,25 @@ export function PriceChart(p: Props) {
         </div>
       </div>
 
+      <dl className="chart-stats" aria-label="Open, high and low so far">
+        <div>
+          <dt>Open</dt>
+          <dd>{p.state.openingPrice === null || p.nowUs < p.preOpenUs ? "–" : rupees(p.state.openingPrice)}</dd>
+        </div>
+        <div>
+          <dt>High</dt>
+          <dd>{p.state.high === null ? "–" : rupees(p.state.high)}</dd>
+        </div>
+        <div>
+          <dt>Low</dt>
+          <dd>{p.state.low === null ? "–" : rupees(p.state.low)}</dd>
+        </div>
+        <div>
+          <dt>Close, yesterday</dt>
+          <dd>{rupees(p.referencePrice)}</dd>
+        </div>
+      </dl>
+
       <div className="chartbox" ref={box} style={{ height: HEIGHT }}>
         <svg
           role="img"
@@ -177,20 +196,17 @@ export function PriceChart(p: Props) {
             strokeWidth={1.5}
             strokeDasharray="6 4"
           />
-          <text x={left + plotWidth - 4} y={y(p.referencePrice) - 6} textAnchor="end" className="tick">
-            Yesterday's close {rupees(p.referencePrice)}
-          </text>
+          {cursorX < left + plotWidth - 200 && (
+            <text x={left + plotWidth - 4} y={y(p.referencePrice) - 6} textAnchor="end" className="tick">
+              Yesterday's close {rupees(p.referencePrice)}
+            </text>
+          )}
 
           {/* the opening auction */}
           <line x1={x(p.preOpenUs)} x2={x(p.preOpenUs)} y1={TOP} y2={VOLUME_BOTTOM} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray="4 3" />
           {showOpening && p.state.openingPrice !== null && (
             <>
               <circle cx={x(p.preOpenUs)} cy={y(p.state.openingPrice)} r={5} fill="var(--ink)" />
-              {!narrow && (
-                <text x={x(p.preOpenUs) + 8} y={TOP + 18} className="tick strong">
-                  Market opens at {rupees(p.state.openingPrice)}
-                </text>
-              )}
             </>
           )}
 
@@ -202,11 +218,6 @@ export function PriceChart(p: Props) {
           {p.biggest && (
             <g>
               <circle cx={x(p.biggest.to.t)} cy={y(p.biggest.to.price)} r={5} fill="var(--sell)" stroke="var(--ink)" />
-              {!narrow && (
-                <text x={x(p.biggest.to.t) + 8} y={y(p.biggest.to.price) - 8} className="tick sell">
-                  Biggest move
-                </text>
-              )}
             </g>
           )}
 
@@ -214,17 +225,7 @@ export function PriceChart(p: Props) {
           {high && high.high.price !== high.low.price && (
             <>
               <circle cx={x(high.high.t)} cy={y(high.high.price)} r={4} fill="var(--surface)" stroke="var(--ink)" strokeWidth={2} />
-              {!narrow && Math.abs(x(high.high.t) - cursorX) > 130 && (
-                <text x={x(high.high.t)} y={Math.max(y(high.high.price) - 10, TOP + 10)} textAnchor="middle" className="tick strong">
-                  Highest {rupees(high.high.price)}
-                </text>
-              )}
               <circle cx={x(high.low.t)} cy={y(high.low.price)} r={4} fill="var(--surface)" stroke="var(--ink)" strokeWidth={2} />
-              {!narrow && Math.abs(x(high.low.t) - cursorX) > 130 && (
-                <text x={x(high.low.t)} y={Math.min(y(high.low.price) + 20, PRICE_BOTTOM - 4)} textAnchor="middle" className="tick strong">
-                  Lowest {rupees(high.low.price)}
-                </text>
-              )}
             </>
           )}
 

@@ -1,4 +1,5 @@
 import { rupees, signed } from "../lib/format";
+import { dayResult, worth } from "../lib/dayresult";
 import type { Portfolio, Statement } from "../lib/practice";
 
 interface Props {
@@ -6,21 +7,20 @@ interface Props {
   start: Portfolio | null;
   statement: Statement | null;
   lastPrice: number | null;
+  previousClose: number;
   symbol: string;
 }
 
-const worth = (p: Portfolio, price: number | null) => p.cash + p.reserved + (price === null ? 0 : (p.shares + p.locked) * price);
-
 /** The numbers a person checks after every trade, always in view. */
-export function AccountStrip({ portfolio, start, statement, lastPrice, symbol }: Props) {
+export function AccountStrip({ portfolio, start, statement, lastPrice, previousClose, symbol }: Props) {
   const held = portfolio.shares + portfolio.locked;
-  const result = start === null ? 0 : worth(portfolio, lastPrice) - worth(start, lastPrice);
+  const result = start === null ? 0 : dayResult(start, portfolio, previousClose, lastPrice, 0).result;
   const direction = result > 0 ? "up" : result < 0 ? "down" : "flat";
   return (
     <section className="strip" aria-label="Your account">
       <div className="stat lead">
         <span className="k">Worth now</span>
-        <span className="v big">{rupees(worth(portfolio, lastPrice))}</span>
+        <span className="v big">{rupees(worth(portfolio, lastPrice ?? previousClose))}</span>
       </div>
       <div className="stat">
         <span className="k">Result today</span>

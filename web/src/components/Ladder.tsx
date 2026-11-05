@@ -29,6 +29,10 @@ function Row({ row, onPick }: { row: LadderRow; onPick: (price: number) => void 
   );
 }
 
+/** Empty rows keep the ladder the same height however many prices are waiting, so nothing below it moves. */
+const ghost = (count: number, key: string) =>
+  Array.from({ length: Math.max(0, count) }, (_, i) => <div className="lrow ghost" aria-hidden="true" key={`${key}${i}`} />);
+
 /** Who is waiting to trade, as a price ladder: sellers above, buyers below, the gap in between. */
 export function Ladder({ state, mine, levels = 6, onPick }: Props) {
   const ladder = buildLadder(state, levels, mine);
@@ -43,7 +47,11 @@ export function Ladder({ state, mine, levels = 6, onPick }: Props) {
         </Help>
       </div>
       {empty ? (
-        <p className="muted small">Nobody is waiting yet. Orders appear here when the market is collecting orders or open.</p>
+        <p className="muted small">
+          {state.session === "CLOSED" && state.eventsApplied > 1
+            ? "The market is closed, so nobody is waiting to trade. Orders left over at the close expire."
+            : "Nobody is waiting yet. Orders appear here as traders send them."}
+        </p>
       ) : (
         <div className="lad">
           <div className="lhead" aria-hidden="true">
@@ -52,6 +60,7 @@ export function Ladder({ state, mine, levels = 6, onPick }: Props) {
             <span>Price ₹</span>
           </div>
           <div className="side-label ask-label">Sellers</div>
+          {ghost(levels - ladder.asks.length, "a")}
           {ladder.asks.map((row) => (
             <Row key={`a${row.price}`} row={row} onPick={onPick} />
           ))}
@@ -59,6 +68,7 @@ export function Ladder({ state, mine, levels = 6, onPick }: Props) {
           {ladder.bids.map((row) => (
             <Row key={`b${row.price}`} row={row} onPick={onPick} />
           ))}
+          {ghost(levels - ladder.bids.length, "b")}
           <div className="side-label bid-label">Buyers</div>
         </div>
       )}

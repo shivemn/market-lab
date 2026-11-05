@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { myActivity, recentTrades } from "../lib/activity";
 import { clock, money } from "../lib/format";
 import type { MarketEvent } from "../lib/market";
@@ -16,11 +16,12 @@ interface Props {
   statement: Statement | null;
   statementFailed: boolean;
   lastPrice: number | null;
+  tab: "activity" | "statement";
+  onTab: (tab: "activity" | "statement") => void;
 }
 
 /** Two tabs under the chart: what happened to you, and what it cost. */
-export function Activity({ events, ends, version, owner, playing, statement, statementFailed, lastPrice }: Props) {
-  const [tab, setTab] = useState<"activity" | "statement">("activity");
+export function Activity({ events, ends, version, owner, playing, statement, statementFailed, lastPrice, tab, onTab: setTab }: Props) {
   const mine = useMemo(() => myActivity(events, ends, owner), [version, owner]);
   const tapeNow = useMemo(() => recentTrades(events, 12, owner), [version, owner]);
   const tape = useThrottled(tapeNow, playing ? 1000 : 0); // at 100x the tape would be a blur; once a second is readable
@@ -84,6 +85,11 @@ export function Activity({ events, ends, version, owner, playing, statement, sta
                         {row.quantity}
                         {row.mine ? " (you)" : ""}
                       </td>
+                    </tr>
+                  ))}
+                  {Array.from({ length: Math.max(0, 12 - tape.length) }, (_, i) => (
+                    <tr key={`g${i}`} className="ghost" aria-hidden="true">
+                      <td colSpan={3}>&nbsp;</td>
                     </tr>
                   ))}
                 </tbody>
