@@ -38,3 +38,18 @@ def cost_account(line: str) -> str:
     if line not in COST_LINES:
         raise ValueError(f"unknown cost line {line!r}; expected one of {COST_LINES}")
     return f"system:costs:{line}"
+
+
+def reserved_account(owner: str) -> str:
+    """Cash set aside for an owner's open buy orders (and for the fixed fees of open sell orders)."""
+    return f"user:{_check_owner(owner)}:reserved"
+
+
+def locked_account(owner: str, symbol: str) -> str:
+    """Shares set aside for an owner's open sell orders, so the same shares cannot be sold twice."""
+    return f"user:{_check_owner(owner)}:locked:{symbol}"
+
+
+def capital_shares_account(symbol: str) -> str:
+    """Where practice shares come from when an account is given some to start with."""
+    return f"system:capital:shares:{symbol}"

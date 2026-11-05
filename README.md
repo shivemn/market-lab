@@ -150,7 +150,8 @@ can later show exactly what was paid and why. These are teaching numbers; check 
 |---|---|---|
 | 7 | SQLite ledger: practice accounts with ₹1,00,000, double-entry transactions, overdraft guard, trades posted from the log | done |
 | 8 | Indian trading costs for delivery trades (STT, exchange charge, SEBI fee, stamp duty, GST, optional brokerage), dated and sourced | done |
-| 9 | Pre-trade checks and a live practice session where you can place orders | |
+| 9a | Pre-trade checks: cash and shares set aside while an order is open, refusals in plain words, settlement fill by fill | done |
+| 9b | A live practice session where you can place orders (the server advances only when asked) | |
 | 10 | Order ticket and portfolio on the page | |
 | 11 | Statements, reconciliation tests, "what did trading cost me" | |
 | 12 | Write-up | |

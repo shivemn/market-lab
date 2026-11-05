@@ -301,3 +301,48 @@ and the backtester are finished.
     Charges are worked out per order and collected fill by fill, so splitting an order never changes its total, and a
     flat brokerage lands on the first fill. Each kind of charge has its own ledger account. Simplifications: demat fee
     charged per sell order, not per holding per day; delivery equity on the NSE only.
+11. **Week 9a delivered:** `marketlab.ledger.Gateway`. Before an order reaches the exchange, a buy sets aside its
+    worst case (price x quantity plus the highest charges it could incur; a market buy is priced at the top of the
+    band and the refusal message says so) and a sell locks its shares so they cannot be sold twice (plus the fixed
+    fees of the broker plan, nothing on the default plan). Each fill pays from what was set aside; a buy that trades
+    below its limit gets the difference back; an order that ends (filled, cancelled, expired, IOC remainder, rejected
+    by the exchange) returns whatever is left. All of it stays in the ledger in `reserved` and `locked` accounts.
+    Refusals are plain sentences with the numbers. Changing an open order is not supported yet (cancel and re-enter).
+    Tested on a real exchange with hand-worked cases, a random-sequence test that checks after every step that the
+    ledger agrees with the gateway and the exchange's book, and that the live ledger equals one rebuilt from the log
+    alone; five deliberate bugs are caught.
+
+## 14. Design for Week 9b: the live practice session (to review before building)
+
+**Principle: the server never owns a clock.** It advances the simulation only when asked. The browser keeps the timer,
+so speed and pause are the browser's choice and pausing costs nothing. The simulation is already a deterministic
+event loop, so this is a small step, and it needs no threads.
+
+**A session** is one simulated day with one practice account: `{seed, config, account, ledger, gateway, simulator state}`.
+
+| Call | What it does |
+|---|---|
+| `POST /api/sessions` | Start a day (seed, owner). Opens the account if new. Returns the session id and the events so far (the pre-open). |
+| `POST /api/sessions/{id}/advance` `{seconds}` | Run the simulation forward. Returns only the new events and the portfolio. |
+| `POST /api/sessions/{id}/orders` | Check and reserve, then send the order at the current simulated moment. Refusal is a 422 with the plain sentence. |
+| `DELETE /api/sessions/{id}/orders/{order_id}` | Cancel. |
+| `GET /api/sessions/{id}` | Current portfolio: cash, reserved, holdings, open orders. |
+
+**Determinism with my orders in the day.** The log records every command of mine with the simulated moment it was
+sent. Replay re-runs the same seed and injects the same commands at the same moments. At the same microsecond, my
+command goes in before the simulated traders act. A test checks that the same seed and the same commands always give
+the same fingerprint and the same ledger. The simulated traders react to my orders through the book, so the rest of the
+day differs from the day without me, and that is the point.
+
+**Advance stops early** when one of my orders trades, so the page can pause and explain it ("12 of your 20 shares
+traded, 8 are still waiting behind 14 shares"). The browser decides whether to pause.
+
+**Where the code goes:** the simulator gets a stepping interface (`advance_to(t)` and `inject(command)`) next to the
+existing `run_simulation`, which stays as it is and becomes a loop over the new interface. The existing WebSocket
+playback stays for watching days. Sessions live in memory; the ledger lives in SQLite.
+
+**Tests planned:** the same seed with no commands gives the same fingerprint as today's `run_simulation` (nothing
+regresses); a recorded session replays exactly; random commands interleaved with random advances keep every ledger
+invariant from Week 9a; refusals do not change the day.
+
+**Decisions made:** advance-based API (agreed); auto-pause on my fills (proposed, browser-side); no modify yet.

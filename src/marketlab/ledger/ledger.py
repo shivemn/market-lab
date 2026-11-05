@@ -22,6 +22,7 @@ from marketlab.ledger.names import (
     COST_LINES,
     INR,
     MARKET_CASH,
+    capital_shares_account,
     cash_account,
     cost_account,
     shares_account,
@@ -127,6 +128,19 @@ class Ledger:
             )
         elif row[0] != unit or bool(row[1]) != allows_negative:
             raise LedgerError(f"account {account_id} already exists with different settings")
+
+    def grant_shares(self, owner: str, symbol: str, quantity: int) -> None:
+        """Give an owner some shares to start with (for practice scenarios and tests)."""
+        if quantity <= 0:
+            raise LedgerError("a grant must be of at least one share")
+        account = shares_account(owner, symbol)
+        self.ensure_account(account, symbol)
+        self.ensure_account(capital_shares_account(symbol), symbol, allows_negative=True)
+        self.post(
+            [Entry(capital_shares_account(symbol), -quantity), Entry(account, quantity)],
+            at=0,
+            memo=f"Starting shares of {symbol}",
+        )
 
     def has_account(self, account_id: str) -> bool:
         return self._conn.execute("SELECT 1 FROM accounts WHERE id = ?", (account_id,)).fetchone() is not None
