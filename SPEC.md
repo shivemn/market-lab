@@ -345,4 +345,16 @@ playback stays for watching days. Sessions live in memory; the ledger lives in S
 regresses); a recorded session replays exactly; random commands interleaved with random advances keep every ledger
 invariant from Week 9a; refusals do not change the day.
 
-**Decisions made:** advance-based API (agreed); auto-pause on my fills (proposed, browser-side); no modify yet.
+**Decisions made:** advance-based API (agreed); auto-pause on my fills (the server pauses; the page decides what to show); no modify yet.
+
+12. **Week 9b delivered:** `Simulation` (a steppable day; `run_simulation` is now this class run to the end, and all 28
+    reference days kept their fingerprints), `PracticeSession`, and the `/api/sessions` endpoints. User orders are
+    numbered from 1,000,000,001 so they never disturb the traders' ids. `advance` stops just after the moment one of
+    your orders trades (`now` is that microsecond plus one, so nothing is skipped on replay). Starting a new day for
+    an account ends its old day and returns anything still set aside; a crashed session's leftovers are returned the
+    same way. Accounts live in a SQLite file (`marketlab serve --db practice.db`), so cash and shares carry over.
+    A random-sessions test (random advances, orders and cancels) checks consistency after every action and that
+    replay from the seed and the commands gives the same fingerprint and the same books; it found one real bug while
+    being written (a market order waiting for the opening auction was missing from the account's open orders).
+    Known limits: sessions are kept in memory (lost if the server restarts, which returns the money on the next
+    start); the command script is not yet written to a log file; one server process, with one request at a time.

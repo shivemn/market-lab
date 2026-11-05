@@ -76,6 +76,30 @@ class Gateway:
         ledger.ensure_account(locked_account(owner, instrument.symbol), instrument.symbol)
         ledger.ensure_account(market_shares_account(instrument.symbol), instrument.symbol, allows_negative=True)
 
+    def recover(self) -> int:
+        """Give back money and shares left set aside by a session that never finished (a crash, or a closed tab).
+
+        Only safe when no other gateway is running for this owner, which is why a session ends the old one first.
+        Returns how many paise were returned.
+        """
+        owner, symbol = self._owner, self._instrument.symbol
+        cash = self._ledger.balance(reserved_account(owner)) - self.reserved_cash()
+        shares = self._ledger.balance(locked_account(owner, symbol)) - self.locked_shares()
+        entries: list[Entry] = []
+        if cash:
+            entries += [Entry(reserved_account(owner), -cash), Entry(cash_account(owner), cash)]
+        if shares:
+            entries += [Entry(locked_account(owner, symbol), -shares), Entry(shares_account(owner, symbol), shares)]
+        if entries:
+            self._ledger.post(entries, at=0, memo="Returned from a session that did not finish")
+        return cash
+
+    def abandon(self) -> None:
+        """End the session early: return everything still set aside for open orders."""
+        for reservation in list(self._open.values()):
+            self._open.pop(reservation.order_id, None)
+            self._release(reservation, 0)
+
     # -- reading ----------------------------------------------------------------------------------------------
 
     def open_order_ids(self) -> list[int]:

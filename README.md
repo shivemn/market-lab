@@ -151,7 +151,7 @@ can later show exactly what was paid and why. These are teaching numbers; check 
 | 7 | SQLite ledger: practice accounts with ₹1,00,000, double-entry transactions, overdraft guard, trades posted from the log | done |
 | 8 | Indian trading costs for delivery trades (STT, exchange charge, SEBI fee, stamp duty, GST, optional brokerage), dated and sourced | done |
 | 9a | Pre-trade checks: cash and shares set aside while an order is open, refusals in plain words, settlement fill by fill | done |
-| 9b | A live practice session where you can place orders (the server advances only when asked) | |
+| 9b | A live practice session: place and cancel orders in a day that moves only when you advance it (API; the page follows in Week 10) | done |
 | 10 | Order ticket and portfolio on the page | |
 | 11 | Statements, reconciliation tests, "what did trading cost me" | |
 | 12 | Write-up | |
@@ -165,6 +165,8 @@ that will be lifted later.
 src/marketlab/core/     order types, validation, order book, auction price, events, the exchange (no I/O)
 src/marketlab/codec.py, log.py     events as canonical text, the log file with its fingerprint
 src/marketlab/projection.py        the market rebuilt from events alone
+src/marketlab/session.py           a practice session: one day, one account, your orders
+src/marketlab/costs.py             Indian delivery-trade charges, exact
 src/marketlab/ledger/   practice accounts and the double-entry ledger (SQLite), trades from the log become entries
 src/marketlab/sim/      random price process and the simulated traders
 src/marketlab/api/      the web server: REST and a WebSocket that plays a day back

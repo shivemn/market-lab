@@ -58,6 +58,7 @@ def _parser() -> argparse.ArgumentParser:
     serve = commands.add_parser("serve", help="start the web server (the live dashboard talks to it)")
     serve.add_argument("--host", default="127.0.0.1", help="keep the default unless you know why you are changing it")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--db", default="practice.db", help="the practice accounts' database file (made if missing)")
     serve.add_argument("--web", type=Path, default=Path("web/dist"), help="the built dashboard, if you have built it")
     serve.set_defaults(handler=_serve)
 
@@ -102,7 +103,7 @@ def _serve(args: argparse.Namespace) -> int:
     web = args.web if args.web.is_dir() else None
     dashboard = "built" if web else "not built, use npm run dev"
     print(f"Market Lab server on http://{args.host}:{args.port}  (dashboard: {dashboard})")
-    uvicorn.run(create_app(web), host=args.host, port=args.port, log_level="warning")
+    uvicorn.run(create_app(web, args.db), host=args.host, port=args.port, log_level="warning")
     return 0
 
 

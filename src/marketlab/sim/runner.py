@@ -17,11 +17,12 @@ that it comes out identical.
 from __future__ import annotations
 
 import heapq
-from dataclasses import asdict, dataclass, fields
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, fields, replace
 from typing import Any
 
 from marketlab.codec import hash_events
-from marketlab.core import Event, Exchange, Instrument, Session
+from marketlab.core import Command, Event, Exchange, Instrument, NewOrder, Order, Session
 from marketlab.projection import MarketState
 from marketlab.sim.agents import Context, MarketMaker, NoiseTrader, Trader, ValueTrader
 from marketlab.sim.processes import FairValue
@@ -82,63 +83,162 @@ def build_traders(config: SimConfig) -> list[Trader]:
     return traders
 
 
-def run_simulation(config: SimConfig) -> SimulationResult:
-    instrument = config.instrument()
-    rng = SimRng(config.seed)
-    exchange = Exchange(instrument)
-    state = MarketState(instrument)
-    fair = FairValue(float(config.reference_price), config.volatility, config.jump_rate, config.jump_sd)
-    traders = build_traders(config)
-    events: list[Event] = []
-    next_order_id = 0
+USER_ORDER_ID_START = 1_000_000_000  # a person's orders count up from here, so they never disturb the traders' ids
 
-    def new_id() -> int:
-        nonlocal next_order_id
-        next_order_id += 1
-        return next_order_id
 
-    ends: list[int] = []
+class SimulationFinished(Exception):
+    """The day is over; nothing more can happen."""
 
-    def record(new: list[Event]) -> None:
-        events.extend(new)
-        state.apply_all(new)
+
+class Simulation:
+    """A day that can be stepped forward and, in between, handed a person's commands.
+
+    `run_simulation` is this class run straight to the end. The rule that keeps stepping honest is:
+
+        at `now`, every trader wake-up strictly before `now` has happened, and none at or after it.
+
+    So a command injected at `now` goes in before any trader acts in that same microsecond, and replaying a day is
+    just "advance to the time of each command, inject it". Injecting a command draws no random numbers, so a day
+    with no commands is identical to `run_simulation`'s (a test checks the fingerprints).
+    """
+
+    def __init__(self, config: SimConfig) -> None:
+        self.config = config
+        self.instrument = config.instrument()
+        self.exchange = Exchange(self.instrument)
+        self.state = MarketState(self.instrument)
+        self.events: list[Event] = []
+        self.ends: list[int] = []
+        self.script: list[tuple[int, Command]] = []  # what a person sent, and when: enough to replay the day
+        self.now = 0
+        self.opened = False
+        self.finished = False
+        self._rng = SimRng(config.seed)
+        self._fair = FairValue(float(config.reference_price), config.volatility, config.jump_rate, config.jump_sd)
+        self._traders = build_traders(config)
+        self._next_order_id = 0
+        self._next_user_order_id = USER_ORDER_ID_START
+        self._open_at = config.pre_open_seconds * MICROS
+        self._close_at = self._open_at + config.open_seconds * MICROS
+        self._last_fair_time = 0
+        self._record(self.exchange.set_session(Session.PRE_OPEN, 0))
+        # The queue holds (time, tie-break number, trader index). The tie-break keeps the order stable when two
+        # wake-ups fall on the same microsecond.
+        self._queue: list[tuple[int, int, int]] = []
+        self._counter = 0
+        for index, trader in enumerate(self._traders):
+            self._counter += 1
+            heapq.heappush(self._queue, (trader.delay(self._rng), self._counter, index))
+
+    @property
+    def open_at(self) -> int:
+        return self._open_at
+
+    @property
+    def close_at(self) -> int:
+        return self._close_at
+
+    def new_user_order_id(self) -> int:
+        self._next_user_order_id += 1
+        return self._next_user_order_id
+
+    def _new_id(self) -> int:
+        self._next_order_id += 1
+        return self._next_order_id
+
+    def _record(self, new: list[Event]) -> None:
+        self.events.extend(new)
+        self.state.apply_all(new)
         if new:
-            ends.append(len(events))
+            self.ends.append(len(self.events))
 
-    open_at = config.pre_open_seconds * MICROS
-    close_at = open_at + config.open_seconds * MICROS
+    def _open(self) -> None:
+        self._record(self.exchange.set_session(Session.OPEN, self._open_at))
+        self.opened = True
 
-    record(exchange.set_session(Session.PRE_OPEN, 0))
+    def _run_wakeups(self, before: int, stop: Callable[[list[Event]], bool] | None) -> int | None:
+        """Let every trader wake-up earlier than `before` happen. If `stop` says so after a wake-up, finish that
+        microsecond and report it, leaving later wake-ups alone."""
+        stopped_at: int | None = None
+        while self._queue and self._queue[0][0] < before and self._queue[0][0] < self._close_at:
+            when, _, index = heapq.heappop(self._queue)
+            first = len(self.events)
+            self._fair.advance((when - self._last_fair_time) / MICROS, self._rng)
+            self._last_fair_time = when
+            trader = self._traders[index]
+            context = Context(when, self.instrument, self.state, self._fair.value, self._rng, self._new_id)
+            for command in trader.act(context):
+                self._record(self.exchange.submit(command, when))
+            self._counter += 1
+            heapq.heappush(self._queue, (when + trader.delay(self._rng), self._counter, index))
+            if stop is not None and stop(self.events[first:]):
+                stopped_at = when
+            if stopped_at is not None and (not self._queue or self._queue[0][0] > stopped_at):
+                return stopped_at
+        return None
 
-    # The queue holds (time, tie-break number, trader index). The tie-break keeps the order stable when two
-    # wake-ups fall on the same microsecond.
-    queue: list[tuple[int, int, int]] = []
-    counter = 0
-    for index, trader in enumerate(traders):
-        counter += 1
-        heapq.heappush(queue, (trader.delay(rng), counter, index))
+    def advance_to(self, until: int, stop: Callable[[list[Event]], bool] | None = None) -> list[Event]:
+        """Move the day forward to `until` microseconds, or to just after the first wake-up that makes `stop` true.
 
-    last_fair_time = 0
-    opened = False
-    while queue and queue[0][0] < close_at:
-        when, _, index = heapq.heappop(queue)
-        if not opened and when >= open_at:
-            record(exchange.set_session(Session.OPEN, open_at))
-            opened = True
-        if opened and when < open_at:  # pragma: no cover - the heap is ordered, so this cannot happen
-            raise AssertionError("time went backwards")
-        fair.advance((when - last_fair_time) / MICROS, rng)
-        last_fair_time = when
-        trader = traders[index]
-        context = Context(when, instrument, state, fair.value, rng, new_id)
-        for command in trader.act(context):
-            record(exchange.submit(command, when))
-        counter += 1
-        heapq.heappush(queue, (when + trader.delay(rng), counter, index))
+        Returns the events that happened. The day cannot go backwards or past its close.
+        """
+        if self.finished:
+            return []
+        if until < self.now:
+            raise ValueError(f"cannot go back in time: now is {self.now}, asked for {until}")
+        until = min(until, self._close_at)
+        first = len(self.events)
+        stopped = self._run_wakeups(until if self.opened else min(until, self._open_at), stop)
+        if stopped is None and not self.opened and until >= self._open_at:
+            self._open()
+            stopped = self._run_wakeups(until, stop)
+        if stopped is None:
+            self.now = until
+        else:
+            self.now = stopped + 1  # the whole microsecond has happened, so the next moment is the one after
+            if not self.opened and self.now >= self._open_at:
+                self._open()
+        if self.now >= self._close_at:
+            self._finish()
+        return self.events[first:]
 
-    if not opened:
-        record(exchange.set_session(Session.OPEN, open_at))
-    if config.close_market:
-        record(exchange.set_session(Session.CLOSED, close_at))
+    def _finish(self) -> None:
+        if self.finished:
+            return
+        if not self.opened:
+            self._open()
+        if self.config.close_market:
+            self._record(self.exchange.set_session(Session.CLOSED, self._close_at))
+        self.finished = True
 
-    return SimulationResult(config, instrument, events, hash_events(events), ends, exchange, state)
+    def inject(self, command: Command) -> list[Event]:
+        """A person's command, sent at the current moment. It is remembered so the day can be replayed."""
+        if self.finished:
+            raise SimulationFinished("the day is over")
+        remembered = replace(command.order) if isinstance(command, NewOrder) else command
+        self.script.append((self.now, NewOrder(remembered) if isinstance(remembered, Order) else remembered))
+        new = self.exchange.submit(command, self.now)
+        self._record(new)
+        return new
+
+    def result(self) -> SimulationResult:
+        return SimulationResult(
+            self.config, self.instrument, self.events, hash_events(self.events), self.ends, self.exchange, self.state
+        )
+
+
+def run_simulation(config: SimConfig) -> SimulationResult:
+    simulation = Simulation(config)
+    simulation.advance_to(simulation.close_at)
+    return simulation.result()
+
+
+def replay_with_commands(config: SimConfig, script: list[tuple[int, Command]]) -> Simulation:
+    """Re-run a day in which a person sent commands. The result is identical, event for event."""
+    simulation = Simulation(config)
+    for when, command in script:
+        simulation.advance_to(when)
+        command_copy = NewOrder(replace(command.order)) if isinstance(command, NewOrder) else command
+        simulation.inject(command_copy)
+    simulation.advance_to(simulation.close_at)
+    return simulation

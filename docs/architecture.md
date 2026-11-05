@@ -109,6 +109,38 @@ The rules are enforced in two places, so a bug in one cannot silently corrupt th
 | Nothing is edited or deleted afterwards | n/a | yes, triggers |
 | The same trade is never recorded twice | yes, by a `cause` key | yes, a unique constraint |
 
+## A practice session
+
+The server owns no clock. The day moves only when the browser asks it to, so speed and pause are the browser's choice.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Session
+    participant G as Gateway
+    participant X as Exchange and traders
+    participant L as Ledger
+    B->>S: advance 5 seconds
+    S->>X: let traders act (stops early if my order trades)
+    X-->>S: events
+    S->>G: settle events
+    G->>L: pay fills, return what is left
+    B->>S: place buy 10 at 2,500.00
+    S->>G: can I afford the worst case?
+    alt cannot
+        G-->>B: refused, in plain words
+    else can
+        G->>L: set money aside
+        S->>X: send the order at the current moment
+        X-->>S: events (accepted, maybe trades)
+        S->>G: settle events
+    end
+```
+
+The rule that makes replay exact: at "now", every trader wake-up strictly before now has happened and none at or after it.
+So a command goes in before the traders of that same microsecond, and replaying a day is "advance to each command's time,
+then send it". Sending a command draws no random numbers.
+
 ## Why the web page recomputes things
 
 The web page does not ask the server "what does the book look like?". It receives the same events and folds them

@@ -65,8 +65,11 @@ class Transaction:
 
 
 class Ledger:
-    def __init__(self, path: str = ":memory:") -> None:
-        self._conn = sqlite3.connect(path, isolation_level=None)  # we begin and end transactions ourselves
+    def __init__(self, path: str = ":memory:", *, shared_across_threads: bool = False) -> None:
+        # A web server may use the ledger from several threads. Then the caller must take turns (hold a lock).
+        self._conn = sqlite3.connect(
+            path, isolation_level=None, check_same_thread=not shared_across_threads
+        )  # we begin and end transactions ourselves
         self._conn.execute("PRAGMA foreign_keys = ON")
         if path != ":memory:":
             self._conn.execute("PRAGMA journal_mode = WAL")
