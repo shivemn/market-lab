@@ -1,16 +1,15 @@
 # Market Lab
 
-A small stock exchange that runs on your computer, with a web page that lets you watch it work.
+A practice stock market that runs on your computer. Simulated traders and a real matching engine make a price move
+through the day. You trade with ₹1,00,000 of virtual money, see your order join the queue, and see exactly what each
+trade cost you in Indian taxes and charges. The point is to show how a market actually behaves: orders wait in line,
+get partly filled, and move the price when they are large.
 
-Simulated traders send orders. The exchange matches them with real market rules: price-time priority, tick sizes,
-price bands and an opening auction. Everything that happens is written to an ordered log that can be replayed exactly.
-The page draws the day as a price chart and shows, at any moment, who is waiting in line to trade and why the price
-moved.
+Under the page there is a small exchange with real market rules (price-time priority, tick sizes, price bands, an
+opening auction), an ordered event log that replays exactly, and a double-entry ledger in SQLite that keeps your money
+honest. All prices and people are simulated and the companies are made up. Nothing here is investment advice.
 
-The long-term goal is a place where beginners practise with virtual money and see how a market really behaves: an
-order joins a queue, gets partly filled, and moves the price if it is large. This repository is Phase 1, the exchange
-and the page that explains it. All prices and people are simulated, and the companies are made up. Nothing here is
-investment advice.
+For the story of how it was built and what testing caught, read [docs/WRITEUP.md](docs/WRITEUP.md).
 
 ![The day view: a price chart with volume, the queue of waiting orders, and what just happened](docs/img/day-view.png)
 
@@ -25,8 +24,15 @@ investment advice.
   carries a SHA-256 fingerprint, so an edited, truncated or reordered log is refused.
 - **A seeded simulator** (`sim`): market makers, casual traders and value traders, with a price process that has
   random drift and occasional jumps. The same seed gives the same day.
+- **A ledger and a gateway** (`ledger`): accounts and transactions in SQLite. Every transaction adds up to zero, and the
+  database itself refuses overdrafts and edits. Before an order is sent, the gateway sets aside the worst-case cost,
+  and it settles each fill from that money.
+- **Indian trading costs** (`costs.py`): brokerage, STT, exchange charge, SEBI fee, stamp duty and GST, as exact
+  fractions in dated schedules, charged fill by fill.
+- **A practice session and statement** (`session.py`, `ledger/statement.py`): your orders in a live simulated day, and
+  a statement rebuilt from the ledger that must agree with the ledger's own balances.
 - **A web page** (`web`): React and TypeScript. It folds the events into the market itself, so you can scrub through
-  the day without waiting for the server.
+  the day without waiting for the server, and its Practice tab is where you trade.
 
 How the pieces fit together, one order's journey, and how the auction picks its price are drawn in
 [docs/architecture.md](docs/architecture.md).
@@ -41,11 +47,12 @@ cd web
 npm install
 npm run build
 cd ..
-marketlab serve
+marketlab serve --db practice.db
 ```
 
 Then open http://127.0.0.1:8000. Press play, drag along the chart, or open the "opening auction" tab to see why the
-day opened at its price. The server listens on your own computer only and has no login.
+day opened at its price. In the Practice tab, start a day, press play, and buy a few shares with "Best price now".
+Your account is kept in `practice.db`, so it carries over to the next day; delete the file to start fresh. The server listens on your own computer only and has no login.
 
 If PowerShell refuses to run the activate script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 
@@ -75,10 +82,10 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # the test suite
+pytest                       # 345 tests
 ruff check .
 mypy
-cd web; npm test; cd ..      # 35 tests
+cd web; npm test; cd ..      # 48 tests
 ```
 
 ## How fast is it
@@ -113,14 +120,21 @@ share. Making matching faster would not make the simulation noticeably faster.
 - The fingerprint covers the events but not the log's header line.
 - A day is identical for the same seed on the same machine and Python. Floating-point results (the price process) are
   not guaranteed to match across different CPUs or Python builds, which the integer-only pinned day avoids.
-- Simulated traders have no cash limits, there is one instrument, and nobody can place an order yet.
+- Simulated traders have no cash limits and there is one instrument. You can place and cancel orders, but not change
+  an open order.
+- The price process is not calibrated to any real stock and its volatility is constant, so no strategy can be shown
+  to work on it. It is for learning how a market works, not for forecasting.
+- Practice sessions live in server memory and are lost on restart. The ledger (your cash and shares) is not.
+- Delivery trades only, long only, instant settlement. Charge rates came from secondary sources and need checking
+  against a real contract note before anyone relies on them.
 - The test fixture for the page is about 0.8 MB.
 
 ## Roadmap
 
-Phase 2 is under way (see below). It adds practice accounts with a double-entry ledger, orders you place yourself,
-Indian trading costs and an honest backtester that must beat simple baselines after costs. Later phases add real announcements with an event study,
-and a plain-language app for learners with virtual money. The full plan and decisions are in [SPEC.md](SPEC.md).
+Phase 2 (practice accounts, a ledger, Indian trading costs, your own orders, statements) is finished and described
+below. Next, in order and only if the project continues: an honest backtester that has to beat simple baselines after
+costs, then real announcements with an event study, then a plain-language app for learners. The plan and decisions
+are in [SPEC.md](SPEC.md).
 
 ## Phase 2: practice accounts
 
@@ -164,7 +178,7 @@ can later show exactly what was paid and why. These are teaching numbers; check 
 | 9b | A live practice session: place and cancel orders in a day that moves only when you advance it (API; the page follows in Week 10) | done |
 | 10 | The Practice tab: order ticket with a plain-words preview, your account, open orders, a day that pauses when your order trades | done |
 | 11 | Statements built from the ledger alone, reconciled against its balances; "what trading has cost you" by charge line | done |
-| 12 | Write-up | |
+| 12 | Write-up, README, demo script | done |
 
 Scope for now: delivery trades only, long only (no short selling), instant settlement. Each is a simplification
 that will be lifted later.
@@ -177,7 +191,7 @@ src/marketlab/codec.py, log.py     events as canonical text, the log file with i
 src/marketlab/projection.py        the market rebuilt from events alone
 src/marketlab/session.py           a practice session: one day, one account, your orders
 src/marketlab/costs.py             Indian delivery-trade charges, exact
-src/marketlab/ledger/   practice accounts and the double-entry ledger (SQLite), trades from the log become entries
+src/marketlab/ledger/   practice accounts and the double-entry ledger (SQLite), the order gateway, and statements
 src/marketlab/sim/      random price process and the simulated traders
 src/marketlab/api/      the web server: REST and a WebSocket that plays a day back
 src/marketlab/cli.py    the `marketlab` command (run, show, replay, serve)

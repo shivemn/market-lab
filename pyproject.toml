@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "marketlab"
 version = "0.1.0"
-description = "A small stock exchange simulator with price-time matching, a pre-open auction and a replayable event log."
+description = "A practice stock market: a simulated exchange, a double-entry ledger and Indian trading costs, with a replayable event log."
+license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
