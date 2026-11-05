@@ -158,3 +158,28 @@ h2 { margin: 0; font-size: 20px; }
 @media (prefers-reduced-motion: no-preference) {
   .block { transition: filter 0.15s; }
 }
+
+/* practice */
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.seg { display: flex; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; min-height: 44px; border: 0; background: var(--surface); font-size: 16px; font-weight: 700; cursor: pointer; }
+.seg button + button { border-left: 2px solid var(--line); }
+.seg button.on { background: var(--ink); color: var(--surface); }
+.seg button.buy.on { background: var(--buy); color: #fff; }
+.seg button.sell.on { background: var(--sell); color: var(--ink); }
+.preview { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--ground); font-size: 15px; min-height: 3.2em; }
+.btn.sellbtn { background: var(--sell); border-color: var(--sell); color: var(--ink); }
+.ticket .inline { display: flex; gap: 8px; }
+.ticket .inline input { flex: 1; }
+.notice { margin: 0; padding: 12px 16px; border-radius: 10px; background: var(--you); color: var(--ink); font-weight: 700; }
+.block.mine { background: var(--you); color: var(--ink); outline: 2px solid var(--ink); outline-offset: -2px; }
+.folio { margin: 0; display: grid; gap: 8px; }
+.folio div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--row-line); padding-bottom: 6px; }
+.folio dt { color: var(--muted); font-size: 15px; }
+.folio dd { margin: 0; font-size: 18px; font-weight: 700; }
+.folio .total dd { font-size: 22px; }
+.sub { margin: 4px 0 0; font-size: 16px; }
+.orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.orders li { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.buy-text { color: var(--buy); }
+.sell-text { color: var(--sell-text); }

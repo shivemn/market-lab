@@ -24,6 +24,7 @@ interface Props {
   onSpeed: (speed: number) => void;
   onAuction: () => void;
   onBiggest: () => void;
+  practice?: boolean; // a live practice day: no scrubbing back, no jump buttons
 }
 
 const HEIGHT = 390;
@@ -90,8 +91,9 @@ export function PriceChart(p: Props) {
         <div>
           <h2 id="chart-title">Price of {p.symbol} through the day</h2>
           <p className="muted lead">
-            Every point on the line is a trade between one buyer and one seller. Press play to watch the day unfold, or
-            drag along the chart to look at any moment.
+            {p.practice
+              ? "Every point on the line is a trade between one buyer and one seller. Press play to start the day. You can place an order at any moment, and the day pauses by itself when one of your orders trades."
+              : "Every point on the line is a trade between one buyer and one seller. Press play to watch the day unfold, or drag along the chart to look at any moment."}
           </p>
         </div>
         <div className="controls">
@@ -111,18 +113,22 @@ export function PriceChart(p: Props) {
           >
             Speed {p.speed}×
           </button>
-          <button className="btn" onClick={p.onAuction}>
-            Jump to the opening
-          </button>
-          <button className="btn" onClick={p.onBiggest} disabled={!p.biggest}>
-            Jump to the biggest move
-          </button>
-          {p.status === "done" && p.following && (
+          {!p.practice && (
+            <button className="btn" onClick={p.onAuction}>
+              Jump to the opening
+            </button>
+          )}
+          {!p.practice && (
+            <button className="btn" onClick={p.onBiggest} disabled={!p.biggest}>
+              Jump to the biggest move
+            </button>
+          )}
+          {!p.practice && p.status === "done" && p.following && (
             <button className="btn primary" onClick={p.onReplay}>
               Watch this day again
             </button>
           )}
-          {!p.following && (
+          {!p.practice && !p.following && (
             <button className="btn primary" onClick={p.onLive}>
               Back to the latest
             </button>
@@ -267,6 +273,7 @@ export function PriceChart(p: Props) {
             </>
           )}
         </svg>
+        {!p.practice && (
         <input
           type="range"
           className="slider"
@@ -279,6 +286,7 @@ export function PriceChart(p: Props) {
           aria-label="Move through the day"
           aria-valuetext={`${dayClock(p.nowUs)} into the day`}
         />
+        )}
       </div>
       <p className="caption" aria-live="polite">
         {caption}

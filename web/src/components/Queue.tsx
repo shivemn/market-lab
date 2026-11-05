@@ -8,9 +8,10 @@ interface Props {
   state: MarketState;
   followed: number | null;
   onFollow: (id: number | null) => void;
+  mine?: string; // the person's own account, so their orders stand out in the queue
 }
 
-export function Queue({ state, followed, onFollow }: Props) {
+export function Queue({ state, followed, onFollow, mine }: Props) {
   const asks = state.depth("SELL", LEVELS).reverse(); // worst price at the top, best next to the middle
   const bids = state.depth("BUY", LEVELS);
   const biggest = Math.max(1, ...asks.map((l) => l.quantity), ...bids.map((l) => l.quantity));
@@ -49,16 +50,17 @@ export function Queue({ state, followed, onFollow }: Props) {
     const blocks = level.orders.map((order) => {
       const width = Math.max(MIN_BLOCK, order.remaining * scale);
       const pinned = order.id === followed;
+      const yours = mine !== undefined && order.account === mine;
       return (
         <button
           key={order.id}
-          className={`block ${side === "BUY" ? "buy" : "sell"}${pinned ? " pinned" : ""}`}
+          className={`block ${side === "BUY" ? "buy" : "sell"}${pinned ? " pinned" : ""}${yours ? " mine" : ""}`}
           style={{ width }}
           onClick={() => onFollow(pinned ? null : order.id)}
           aria-pressed={pinned}
-          aria-label={`${side === "BUY" ? "Buy" : "Sell"} order ${order.id} from ${order.account}, ${order.remaining} shares at ${rupees(level.price)}. ${pinned ? "Following." : "Select to follow."}`}
+          aria-label={`${side === "BUY" ? "Buy" : "Sell"} order ${order.id} from ${yours ? "you" : order.account}, ${order.remaining} shares at ${rupees(level.price)}. ${pinned ? "Following." : "Select to follow."}`}
         >
-          {width >= 28 ? order.remaining : ""}
+          {yours ? (width >= 44 ? `You ${order.remaining}` : order.remaining) : width >= 28 ? order.remaining : ""}
         </button>
       );
     });

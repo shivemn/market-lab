@@ -3,6 +3,7 @@ import { Header } from "./components/Header";
 import { Queue } from "./components/Queue";
 import { AuctionView } from "./components/AuctionView";
 import { PriceChart } from "./components/PriceChart";
+import { PracticeView } from "./components/PracticeView";
 import { HowToRead, JustHappened, StartPanel } from "./components/Side";
 import { fold } from "./lib/market";
 import { narrate } from "./lib/narrate";
@@ -14,7 +15,7 @@ export default function App() {
   const { events, ends, version, summary } = run;
   const [cursor, setCursor] = useState<number | null>(null); // index into ends; null means "the latest moment"
   const [followed, setFollowed] = useState<number | null>(null);
-  const [view, setView] = useState<"day" | "auction">("day");
+  const [view, setView] = useState<"day" | "auction" | "practice">("day");
   const { start } = run;
 
   useEffect(() => {
@@ -46,17 +47,26 @@ export default function App() {
     if (at >= 0) jumpTo(events[at].sim_time);
   };
 
+  const tabs = (
+    <nav className="tabs" aria-label="Screens">
+      <button className={`tab${view === "day" ? " on" : ""}`} aria-pressed={view === "day"} onClick={() => setView("day")}>
+        The day
+      </button>
+      <button className={`tab${view === "auction" ? " on" : ""}`} aria-pressed={view === "auction"} onClick={() => setView("auction")}>
+        The opening auction
+      </button>
+      <button className={`tab${view === "practice" ? " on" : ""}`} aria-pressed={view === "practice"} onClick={() => setView("practice")}>
+        Practice
+      </button>
+    </nav>
+  );
+
+  if (view === "practice") return <PracticeView tabs={tabs} />;
+
   return (
     <div className="app">
       <Header state={state} summary={summary} />
-      <nav className="tabs" aria-label="Screens">
-        <button className={`tab${view === "day" ? " on" : ""}`} aria-pressed={view === "day"} onClick={() => setView("day")}>
-          The day
-        </button>
-        <button className={`tab${view === "auction" ? " on" : ""}`} aria-pressed={view === "auction"} onClick={() => setView("auction")}>
-          The opening auction
-        </button>
-      </nav>
+      {tabs}
       {view === "auction" ? (
         <AuctionView events={events} version={version} instrument={summary?.instrument ?? null} onBack={() => setView("day")} />
       ) : (

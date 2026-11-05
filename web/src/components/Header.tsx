@@ -4,7 +4,7 @@ import type { MarketState } from "../lib/market";
 
 const SESSION_WORDS = { CLOSED: "Market is closed", PRE_OPEN: "Before the open", OPEN: "Market is open" } as const;
 
-export function Header({ state, summary }: { state: MarketState; summary: RunSummary | null }) {
+export function Header({ state, summary }: { state: MarketState; summary: Pick<RunSummary, "instrument"> | null }) {
   const reference = summary?.instrument.reference_price ?? null;
   const price = state.lastPrice ?? state.openingPrice ?? reference;
   return (

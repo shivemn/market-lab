@@ -201,6 +201,11 @@ def portfolio_json(folio: Portfolio) -> dict[str, Any]:
     }
 
 
+def ends_after(session: PracticeSession, events_before: int) -> list[int]:
+    """The command boundaries (event counts) that came after the client's last event, so it can fold whole commands."""
+    return [end for end in session.sim.ends if end > events_before]
+
+
 def session_json(session_id: str, session: PracticeSession) -> dict[str, Any]:
     return {
         "id": session_id,
@@ -315,6 +320,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 **session_json(session_id, session),
                 "plan": PLANS[request.plan].description,
                 "new_events": [event_to_dict(e) for e in session.sim.events],
+                "new_ends": ends_after(session, 0),
             }
 
     @app.get("/api/sessions/{session_id}")
@@ -331,9 +337,11 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def advance_session(session_id: str, request: AdvanceRequest) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
+            before = len(session.sim.events)
             result = session.advance(request.seconds, pause_on_fill=request.pause_on_fill)
             return {
                 "new_events": [event_to_dict(e) for e in result.events],
+                "new_ends": ends_after(session, before),
                 "now": result.now,
                 "stopped_for_fill": result.stopped_for_fill,
                 "finished": result.finished,
@@ -345,6 +353,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def place_order(session_id: str, request: OrderRequest) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
+            before = len(session.sim.events)
             try:
                 order_id, events = session.place(
                     Side(request.side), request.quantity, request.limit_price, TimeInForce(request.tif)
@@ -354,6 +363,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             return {
                 "order_id": order_id,
                 "new_events": [event_to_dict(e) for e in events],
+                "new_ends": ends_after(session, before),
                 "now": session.now,
                 "portfolio": portfolio_json(session.portfolio()),
             }
@@ -362,12 +372,14 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def cancel_order(session_id: str, order_id: int) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
+            before = len(session.sim.events)
             try:
                 events = session.cancel(order_id)
             except OrderRefused as refused:
                 raise HTTPException(422, str(refused)) from refused
             return {
                 "new_events": [event_to_dict(e) for e in events],
+                "new_ends": ends_after(session, before),
                 "now": session.now,
                 "portfolio": portfolio_json(session.portfolio()),
             }

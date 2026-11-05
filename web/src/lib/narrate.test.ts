@@ -48,3 +48,53 @@ describe("who", () => {
     expect(who("Z9")).toBe("A trader");
   });
 });
+
+describe("narrate for a person trading", () => {
+  const base = { seq: 1, sim_time: 0 };
+  const trade = (buyer: string, seller: string, price: number, quantity: number): MarketEvent => ({
+    ...base,
+    type: "Trade",
+    trade_id: 1,
+    symbol: "DEMO1",
+    price,
+    quantity,
+    buy_order_id: 1,
+    sell_order_id: 2,
+    buy_account_id: buyer,
+    sell_account_id: seller,
+    aggressor_side: "BUY",
+  });
+
+  it("says what happened to you, not just to the market", () => {
+    const events = [trade("you", "NT3", 250_005, 12)];
+    expect(narrate(events, [1], 1, 1, "you")).toEqual(["Your order traded: you bought 12 shares at ₹2,500.05."]);
+    expect(narrate([trade("NT3", "you", 250_005, 1)], [1], 1, 1, "you")).toEqual(["Your order traded: you sold 1 share at ₹2,500.05."]);
+  });
+
+  it("gives an average when your order trades at several prices", () => {
+    const events = [trade("you", "A", 250_000, 10), trade("you", "B", 250_010, 10)];
+    expect(narrate(events, [2], 2, 1, "you")[0]).toBe(
+      "Your order traded: you bought 20 shares at ₹2,500.05 on average (from ₹2,500.00 to ₹2,500.10).",
+    );
+  });
+
+  it("describes other people's trades as before", () => {
+    expect(narrate([trade("A", "B", 250_000, 5)], [1], 1, 1, "you")[0]).toBe("5 shares changed hands at ₹2,500.00. A buyer paid the seller's price.");
+  });
+
+  it("names you when you join the queue", () => {
+    const joined: MarketEvent = {
+      ...base,
+      type: "OrderAccepted",
+      order_id: 9,
+      account_id: "you",
+      symbol: "DEMO1",
+      side: "BUY",
+      order_type: "LIMIT",
+      quantity: 10,
+      limit_price: 249_000,
+      tif: "DAY",
+    };
+    expect(narrate([joined], [1], 1, 1, "you")).toEqual(["You joined the queue to buy 10 shares at ₹2,490.00."]);
+  });
+});

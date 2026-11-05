@@ -358,3 +358,11 @@ invariant from Week 9a; refusals do not change the day.
     being written (a market order waiting for the opening auction was missing from the account's open orders).
     Known limits: sessions are kept in memory (lost if the server restarts, which returns the money on the next
     start); the command script is not yet written to a log file; one server process, with one request at a time.
+13. **Week 10 delivered:** the Practice tab. `usePractice` is the clock (asks the server to advance `speed x 0.25` seconds
+    four times a second; every call goes through one queue so replies cannot arrive out of order, and the page checks
+    its event count against the server's after every reply). Server replies now carry `new_ends` (command boundaries)
+    so the page folds whole commands only. `previewOrder` walks the queue on screen and says in plain words what an
+    order would do (trade now, part now, join the queue behind N shares, or nothing); the server's refusal messages use
+    rupees with Indian grouping. Narration says "Your order traded: you bought 5 shares at ..." for your own trades.
+    Checked end to end against a real server with Playwright (refusal, market buy, resting limit order, auto-pause on a
+    fill). Known limits: no modify, no marks for your fills on the chart yet, practice state lives in the server's memory.

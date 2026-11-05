@@ -124,6 +124,14 @@ and a plain-language app for learners with virtual money. The full plan and deci
 
 ## Phase 2: practice accounts
 
+![The Practice tab: place an order, watch it join the queue, see what it cost](docs/img/practice-view.png)
+
+Open the **Practice** tab, start a day and press play. You can place an order at any moment. The page tells you in
+plain words what it would do before you send it ("3 shares already waiting at that price would trade before yours"),
+and if you cannot afford it, it says exactly why. Your orders show in yellow in the queue. When one of them trades the
+day pauses by itself and explains what happened. The browser keeps the clock; the server only moves the day when asked,
+so pausing costs nothing and a day with your orders in it can still be replayed exactly.
+
 What does a trade cost? Ask the calculator:
 
 ```
@@ -152,7 +160,7 @@ can later show exactly what was paid and why. These are teaching numbers; check 
 | 8 | Indian trading costs for delivery trades (STT, exchange charge, SEBI fee, stamp duty, GST, optional brokerage), dated and sourced | done |
 | 9a | Pre-trade checks: cash and shares set aside while an order is open, refusals in plain words, settlement fill by fill | done |
 | 9b | A live practice session: place and cancel orders in a day that moves only when you advance it (API; the page follows in Week 10) | done |
-| 10 | Order ticket and portfolio on the page | |
+| 10 | The Practice tab: order ticket with a plain-words preview, your account, open orders, a day that pauses when your order trades | done |
 | 11 | Statements, reconciliation tests, "what did trading cost me" | |
 | 12 | Write-up | |
 

@@ -158,3 +158,23 @@ def test_the_market_view_shows_the_book_as_it_stands(client: TestClient) -> None
     client.post(f"/api/sessions/{sid}/advance", json={"seconds": 20})
     market = client.get(f"/api/sessions/{sid}/market").json()
     assert market["session"] == "OPEN" and market["bids"] and market["asks"]
+
+
+def test_every_reply_says_where_commands_end_so_a_client_can_fold_whole_commands(client: TestClient) -> None:
+    opened = start(client)
+    sid = opened["id"]
+    have = len(opened["new_events"])
+    assert opened["new_ends"] and opened["new_ends"][-1] == have
+    everything = list(opened["new_ends"])
+    replies = [
+        client.post(f"/api/sessions/{sid}/advance", json={"seconds": 20}).json(),
+        client.post(f"/api/sessions/{sid}/orders", json={"side": "BUY", "quantity": 1, "limit_price": 225_000}).json(),
+    ]
+    for reply in replies:
+        before = have
+        have += len(reply["new_events"])
+        assert all(end > before for end in reply["new_ends"])
+        if reply["new_events"]:
+            assert reply["new_ends"][-1] == have  # the last new event always finishes a command
+        everything += reply["new_ends"]
+    assert everything == sorted(set(everything)), "boundaries only ever grow, never repeat"

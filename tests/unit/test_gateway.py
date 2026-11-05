@@ -103,8 +103,8 @@ def test_a_buy_that_cannot_be_afforded_is_refused_in_plain_words_and_changes_not
     desk = Desk(cash=10_000_000)  # 1,00,000 rupees
     with pytest.raises(OrderRefused) as caught:
         desk.mine(limit(1, Side.BUY, 250_000, 100, account=ME))
-    assert "100,000.00 available" in str(caught.value)
-    assert "250,296.86" in str(caught.value)
+    assert "₹1,00,000.00 available" in str(caught.value)
+    assert "₹2,50,296.86" in str(caught.value)
     assert (desk.cash(), desk.reserved()) == (10_000_000, 0)
     assert desk.gateway.open_order_ids() == []
 

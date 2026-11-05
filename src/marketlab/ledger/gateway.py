@@ -34,7 +34,7 @@ from marketlab.core import (
     Trade,
 )
 from marketlab.costs import CostModel
-from marketlab.describe import money
+from marketlab.describe import rupees
 from marketlab.ledger.ledger import Entry, Ledger, LedgerError
 from marketlab.ledger.names import (
     INR,
@@ -145,13 +145,13 @@ class Gateway:
             have = self.available_cash()
             if need > have:
                 how = (
-                    f"{money(self._instrument.band_high)} a share, the top of today's price band, because a market "
+                    f"{rupees(self._instrument.band_high)} a share, the top of today's price band, because a market "
                     "order has no price of its own"
                     if order.type is OrderType.MARKET
-                    else f"{money(order.limit_price or 0)} a share"
+                    else f"{rupees(order.limit_price or 0)} a share"
                 )
                 raise OrderRefused(
-                    f"You have {money(have)} available, but this order could cost up to {money(need)} "
+                    f"You have {rupees(have)} available, but this order could cost up to {rupees(need)} "
                     f"({order.quantity} shares at {how}, plus charges). Money already set aside for your other open "
                     "orders is not available."
                 )
@@ -173,8 +173,8 @@ class Gateway:
         fees = self.fixed_fees()
         if fees > self.available_cash():
             raise OrderRefused(
-                f"Selling needs {money(fees)} in cash to pay the broker's fees, and you have "
-                f"{money(self.available_cash())} available."
+                f"Selling needs {rupees(fees)} in cash to pay the broker's fees, and you have "
+                f"{rupees(self.available_cash())} available."
             )
         entries = [
             Entry(shares_account(owner, symbol), -order.quantity),

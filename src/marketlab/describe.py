@@ -16,6 +16,22 @@ from marketlab.core import (
 )
 
 
+def rupees(paise: int) -> str:
+    """Paise as rupees with Indian digit grouping, for example 10000000 -> '₹1,00,000.00'."""
+    sign = "-" if paise < 0 else ""
+    whole, rest = divmod(abs(paise), 100)
+    digits = str(whole)
+    head, tail = digits[:-3], digits[-3:]
+    groups: list[str] = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    grouped = ",".join([*groups, tail]) if groups else tail
+    return f"{sign}₹{grouped}.{rest:02d}"
+
+
 def money(paise: int) -> str:
     """Paise as rupees, for example 250005 -> '2,500.05'."""
     sign = "-" if paise < 0 else ""
