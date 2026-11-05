@@ -171,7 +171,7 @@ export function PriceChart(p: Props) {
           {/* the part of the day before trading starts */}
           <rect x={left} y={TOP} width={x(p.preOpenUs) - left} height={VOLUME_BOTTOM - TOP} fill="var(--shade)" />
           {!narrow && (
-            <text x={left + 8} y={TOP + 18} className="tick">
+            <text x={left + 8} y={TOP + 18} className="tick" style={{ paintOrder: "stroke", stroke: "var(--shade)", strokeWidth: 5 }}>
               Pre-open
             </text>
           )}

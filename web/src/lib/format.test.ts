@@ -53,3 +53,17 @@ describe("short forms for the new screens", () => {
     expect(changeShort(250_000, 250_000)).toEqual({ dir: "flat", text: "unchanged" });
   });
 });
+
+describe("index numbers", () => {
+  it("shows hundredths of a point with Indian grouping and a sign", async () => {
+    const { points, pointsSigned, percentSigned } = await import("./format");
+    expect(points(101_235)).toBe("1,012.35");
+    expect(points(10_000_000)).toBe("1,00,000.00");
+    expect(pointsSigned(1_235)).toBe("+12.35");
+    expect(pointsSigned(-310)).toBe("−3.10");
+    expect(pointsSigned(0)).toBe("0.00");
+    expect(percentSigned(1_200, 100_000)).toBe("+1.20%");
+    expect(percentSigned(-500, 100_000)).toBe("−0.50%");
+    expect(percentSigned(0, 100_000)).toBe("0.00%");
+  });
+});

@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { getStatement, Statement } from "./practice";
+import { getWorldStatement, WorldStatement } from "./world";
 
 /** The account statement, fetched again whenever `stamp` changes (it should change when the account does). */
-export function useStatement(sessionId: string | null, stamp: string): { statement: Statement | null; failed: boolean } {
-  const [statement, setStatement] = useState<Statement | null>(null);
+export function useStatement(worldId: string | null, stamp: string): { statement: WorldStatement | null; failed: boolean } {
+  const [statement, setStatement] = useState<WorldStatement | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    if (sessionId === null) {
+    if (worldId === null) {
       setStatement(null);
       return;
     }
     let current = true;
-    getStatement(sessionId).then(
+    getWorldStatement(worldId).then(
       (s) => {
         if (current) {
           setStatement(s);
@@ -25,6 +25,6 @@ export function useStatement(sessionId: string | null, stamp: string): { stateme
     return () => {
       current = false;
     };
-  }, [sessionId, stamp]);
+  }, [worldId, stamp]);
   return { statement, failed };
 }

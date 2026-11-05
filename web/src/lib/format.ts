@@ -45,3 +45,17 @@ export function changeWords(price: number, reference: number): string {
   const percent = ((Math.abs(diff) / reference) * 100).toFixed(2);
   return `${diff > 0 ? "Up" : "Down"} ${rupees(Math.abs(diff))} (${percent}%)`;
 }
+
+/** An index level given in hundredths of a point: 101235 -> "1,012.35". */
+export const points = (hundredths: number): string => money(hundredths);
+
+/** "+12.35", "−3.10" or "0.00" in index points. */
+export const pointsSigned = (hundredths: number): string =>
+  hundredths === 0 ? "0.00" : `${hundredths > 0 ? "+" : "−"}${money(Math.abs(hundredths))}`;
+
+/** A change as a percentage with its sign: "+0.44%", "−1.20%", "0.00%". `part` and `whole` use the same unit. */
+export function percentSigned(part: number, whole: number): string {
+  if (whole === 0 || part === 0) return "0.00%";
+  const value = (Math.abs(part) / Math.abs(whole)) * 100;
+  return `${part > 0 ? "+" : "−"}${value.toFixed(2)}%`;
+}

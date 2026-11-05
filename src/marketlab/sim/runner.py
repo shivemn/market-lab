@@ -30,6 +30,8 @@ from marketlab.sim.rng import SimRng
 
 MICROS = 1_000_000
 
+CommonReturn = Callable[[int, int], float]
+
 
 @dataclass(frozen=True)
 class SimConfig:
@@ -75,10 +77,10 @@ class SimulationResult:
     state: MarketState  # the market rebuilt from the events alone
 
 
-def build_traders(config: SimConfig) -> list[Trader]:
+def build_traders(config: SimConfig, stale_fraction: float = 0.0) -> list[Trader]:
     traders: list[Trader] = []
     traders += [MarketMaker(f"MM{i + 1}") for i in range(config.market_makers)]
-    traders += [NoiseTrader(f"NT{i + 1}") for i in range(config.noise_traders)]
+    traders += [NoiseTrader(f"NT{i + 1}", stale_fraction=stale_fraction) for i in range(config.noise_traders)]
     traders += [ValueTrader(f"VT{i + 1}") for i in range(config.value_traders)]
     return traders
 
@@ -102,8 +104,10 @@ class Simulation:
     with no commands is identical to `run_simulation`'s (a test checks the fingerprints).
     """
 
-    def __init__(self, config: SimConfig) -> None:
+    def __init__(self, config: SimConfig, common: CommonReturn | None = None, stale_fraction: float = 0.0) -> None:
+        self._stale_fraction = stale_fraction  # see NoiseTrader: orders this far from the price get tidied away
         self.config = config
+        self._common = common  # moves shared with other stocks: (from, to) microseconds -> log-return
         self.instrument = config.instrument()
         self.exchange = Exchange(self.instrument)
         self.state = MarketState(self.instrument)
@@ -115,7 +119,7 @@ class Simulation:
         self.finished = False
         self._rng = SimRng(config.seed)
         self._fair = FairValue(float(config.reference_price), config.volatility, config.jump_rate, config.jump_sd)
-        self._traders = build_traders(config)
+        self._traders = build_traders(config, stale_fraction)
         self._next_order_id = 0
         self._next_user_order_id = USER_ORDER_ID_START
         self._open_at = config.pre_open_seconds * MICROS
@@ -163,7 +167,8 @@ class Simulation:
         while self._queue and self._queue[0][0] < before and self._queue[0][0] < self._close_at:
             when, _, index = heapq.heappop(self._queue)
             first = len(self.events)
-            self._fair.advance((when - self._last_fair_time) / MICROS, self._rng)
+            shared = self._common(self._last_fair_time, when) if self._common is not None else 0.0
+            self._fair.advance((when - self._last_fair_time) / MICROS, self._rng, shared)
             self._last_fair_time = when
             trader = self._traders[index]
             context = Context(when, self.instrument, self.state, self._fair.value, self._rng, self._new_id)
@@ -233,9 +238,14 @@ def run_simulation(config: SimConfig) -> SimulationResult:
     return simulation.result()
 
 
-def replay_with_commands(config: SimConfig, script: list[tuple[int, Command]]) -> Simulation:
+def replay_with_commands(
+    config: SimConfig,
+    script: list[tuple[int, Command]],
+    common: CommonReturn | None = None,
+    stale_fraction: float = 0.0,
+) -> Simulation:
     """Re-run a day in which a person sent commands. The result is identical, event for event."""
-    simulation = Simulation(config)
+    simulation = Simulation(config, common, stale_fraction)
     for when, command in script:
         simulation.advance_to(when)
         command_copy = NewOrder(replace(command.order)) if isinstance(command, NewOrder) else command

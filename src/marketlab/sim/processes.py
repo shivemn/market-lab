@@ -36,11 +36,16 @@ class FairValue:
         self.jump_sd = jump_sd
         self.drift = drift
 
-    def advance(self, dt_seconds: float, rng: SimRng) -> float:
-        """Move forward by dt_seconds and return the new value."""
+    def advance(self, dt_seconds: float, rng: SimRng, common_return: float = 0.0) -> float:
+        """Move forward by dt_seconds and return the new value.
+
+        `common_return` is a log-return handed in from outside: the part of the move that the whole market (or the
+        company's sector) shares with other stocks. It draws no random numbers here, so a stock simulated alone,
+        with the default of zero, behaves exactly as before.
+        """
         if dt_seconds <= 0:
             return self.value
-        log_return = (self.drift - 0.5 * self.volatility**2) * dt_seconds
+        log_return = common_return + (self.drift - 0.5 * self.volatility**2) * dt_seconds
         log_return += self.volatility * math.sqrt(dt_seconds) * rng.gauss()
         if self.jump_rate > 0 and rng.chance(1.0 - math.exp(-self.jump_rate * dt_seconds)):
             log_return += rng.gauss(0.0, self.jump_sd)

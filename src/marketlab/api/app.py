@@ -25,6 +25,15 @@ Practice sessions (Week 9). The server owns no clock: the day moves only when th
     DELETE /api/sessions/{id}/orders/{order}   cancel an open order
     DELETE /api/sessions/{id}                  leave the day early; money set aside is returned
 
+Practice worlds (twelve companies on one clock, with indices). Same rules as a session: the browser owns the clock.
+
+    POST   /api/worlds                          start a day in all twelve companies; returns the opening events
+    GET    /api/worlds/{id}/statement           every trade and charge, and how each company has done for you
+    POST   /api/worlds/{id}/advance             move the day forward {seconds}; stops early when your order trades
+    POST   /api/worlds/{id}/orders              place an order in one company {symbol, side, quantity, ...}
+    DELETE /api/worlds/{id}/orders/{symbol}/{order}    cancel an open order
+    DELETE /api/worlds/{id}                     leave the day early; money set aside is returned
+
 There is no login. Run it on your own computer (it listens on 127.0.0.1 by default). Practice accounts live in a
 SQLite file (`--db`), so cash and shares carry over from one day to the next.
 """
@@ -52,9 +61,19 @@ from marketlab.ledger import Ledger, OrderRefused, build_statement
 from marketlab.projection import MarketState
 from marketlab.session import Portfolio, PracticeSession
 from marketlab.sim import SimConfig, SimulationResult, run_simulation
+from marketlab.world import (
+    BY_SYMBOL,
+    CATALOGUE,
+    INDEX_NAME,
+    SECTORS,
+    PracticeWorld,
+    WorldConfig,
+    WorldPortfolio,
+)
 
 MAX_RUNS_KEPT = 16
 MAX_SESSIONS_KEPT = 8
+MAX_WORLDS_KEPT = 4
 MAX_PAGE = 20_000
 MICROS = 1_000_000
 
@@ -64,6 +83,7 @@ class RunRequest(BaseModel):
     open_seconds: int = Field(default=600, ge=10, le=3600)
     pre_open_seconds: int = Field(default=60, ge=5, le=600)
     noise_traders: int = Field(default=20, ge=0, le=100)
+    company: str | None = Field(default=None, pattern=r"^[A-Z0-9]{1,12}$", description="a symbol from the catalogue")
 
 
 class SessionRequest(BaseModel):
@@ -86,6 +106,20 @@ class OrderRequest(BaseModel):
     quantity: int = Field(ge=1, le=1_000_000)
     limit_price: int | None = Field(default=None, ge=1, description="paise; leave out for a market order")
     tif: Literal["DAY", "IOC"] = "DAY"
+
+
+class WorldRequest(BaseModel):
+    seed: int = Field(default=1, ge=0, le=2**32 - 1)
+    open_seconds: int = Field(default=600, ge=10, le=3600)
+    pre_open_seconds: int = Field(default=60, ge=5, le=600)
+    owner: str = Field(default="you", pattern=r"^[A-Za-z0-9_-]{1,32}$")
+    plan: Literal["zero", "flat20"] = "zero"
+    trading_date: date | None = None
+    fresh_prices: bool = Field(default=False, description="open at the starting prices, not yesterday's closes")
+
+
+class WorldOrderRequest(OrderRequest):
+    symbol: str = Field(pattern=r"^[A-Z0-9]{1,12}$")
 
 
 @dataclass
@@ -241,6 +275,79 @@ def portfolio_json(folio: Portfolio) -> dict[str, Any]:
     }
 
 
+def world_portfolio_json(folio: WorldPortfolio) -> dict[str, Any]:
+    return {
+        "cash": folio.cash,
+        "reserved": folio.reserved,
+        "holdings": {s: {"shares": h.shares, "locked": h.locked} for s, h in folio.holdings.items()},
+        "open_orders": [
+            {
+                "symbol": o.symbol,
+                "id": o.order_id,
+                "side": o.side.value,
+                "quantity": o.quantity,
+                "remaining": o.remaining,
+                "limit_price": o.limit_price,
+            }
+            for o in folio.open_orders
+        ],
+    }
+
+
+def world_json(world_id: str, pw: PracticeWorld) -> dict[str, Any]:
+    world = pw.world
+    statement = pw.statement()  # built once: every part of the snapshot is worked out from this one reading
+    prices = world.prices()
+    positions = pw.positions(prices, statement)
+    today = pw.today(positions)
+    return {
+        "id": world_id,
+        "owner": pw.owner,
+        "config": {
+            "seed": pw.config.seed,
+            "pre_open_seconds": pw.config.pre_open_seconds,
+            "open_seconds": pw.config.open_seconds,
+        },
+        "index_name": INDEX_NAME,
+        "sectors": [{"key": key, "label": label} for key, label in SECTORS],
+        "companies": [
+            {
+                "symbol": c.symbol,
+                "name": c.name,
+                "sector": c.sector,
+                "free_float_shares": c.free_float_shares,
+                "instrument": instrument_json(world.sims[c.symbol].instrument),
+            }
+            for c in CATALOGUE
+        ],
+        "now": world.now,
+        "open_at": world.open_at,
+        "close_at": world.close_at,
+        "finished": world.finished,
+        "portfolio": world_portfolio_json(pw.portfolio()),
+        "prices": prices,
+        "indices": pw.indices(prices),
+        "worth": statement.money + sum(q * prices[s] for s, q in statement.holdings if s in prices),
+        "event_counts": {s: len(sim.events) for s, sim in world.sims.items()},
+        "starting_money": statement.starting_money,
+        "total_charges": statement.total_charges,
+        "positions": {
+            s: {
+                "shares": p.shares,
+                "average_cost": p.average_cost,
+                "bought": p.bought,
+                "sold": p.sold,
+                "charges": p.charges,
+                "realised": p.realised,
+                "unrealised": p.unrealised,
+                "net": p.net,
+                "today": today[s],
+            }
+            for s, p in positions.items()
+        },
+    }
+
+
 def ends_after(session: PracticeSession, events_before: int) -> list[int]:
     """The command boundaries (event counts) that came after the client's last event, so it can fold whole commands."""
     return [end for end in session.sim.ends if end > events_before]
@@ -285,6 +392,10 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     store = RunStore()
     ledger = Ledger(db_path, shared_across_threads=True)
     sessions: OrderedDict[str, PracticeSession] = OrderedDict()
+    worlds: OrderedDict[str, PracticeWorld] = OrderedDict()
+    closes: dict[
+        str, dict[str, int]
+    ] = {}  # each account's last closing prices, so a new day opens where the last ended
     lock = threading.Lock()  # one request at a time touches the ledger and the sessions
 
     def find_session(session_id: str) -> PracticeSession:
@@ -292,6 +403,22 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         if session is None:
             raise HTTPException(404, "unknown session: start one with POST /api/sessions (sessions are kept in memory)")
         return session
+
+    def find_world(world_id: str) -> PracticeWorld:
+        world = worlds.get(world_id)
+        if world is None:
+            raise HTTPException(404, "unknown world: start one with POST /api/worlds (worlds are kept in memory)")
+        return world
+
+    def new_events(pw: PracticeWorld, before: dict[str, int]) -> dict[str, Any]:
+        sims = pw.world.sims
+        return {
+            "new_events": {s: [event_to_dict(e) for e in sim.events[before[s] :]] for s, sim in sims.items()},
+            "new_ends": {s: [end for end in sim.ends if end > before[s]] for s, sim in sims.items()},
+        }
+
+    def counts(pw: PracticeWorld) -> dict[str, int]:
+        return {s: len(sim.events) for s, sim in pw.world.sims.items()}
 
     def find(run_id: str) -> StoredRun:
         run = store.get(run_id)
@@ -306,8 +433,13 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     @app.post("/api/runs")
     def start_run(request: RunRequest | None = None) -> dict[str, Any]:
         request = request or RunRequest.model_validate({})
+        company = BY_SYMBOL.get(request.company) if request.company else None
+        if request.company and company is None:
+            raise HTTPException(422, f"there is no company with the symbol {request.company}")
         config = SimConfig(
             seed=request.seed,
+            symbol=company.symbol if company else "DEMO1",
+            reference_price=company.price if company else 250_000,
             open_seconds=request.open_seconds,
             pre_open_seconds=request.pre_open_seconds,
             noise_traders=request.noise_traders,
@@ -436,6 +568,124 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             session.end_early()
             sessions.pop(session_id, None)
             return {"ended": True, "portfolio": portfolio_json(session.portfolio())}
+
+    @app.post("/api/worlds")
+    def start_world(request: WorldRequest | None = None) -> dict[str, Any]:
+        request = request or WorldRequest.model_validate({})
+        config = WorldConfig(
+            seed=request.seed, open_seconds=request.open_seconds, pre_open_seconds=request.pre_open_seconds
+        )
+        with lock:
+            for old_id in [i for i, other in worlds.items() if other.owner == request.owner]:
+                worlds.pop(old_id).end_early()  # one day at a time per account; money set aside comes back
+            try:
+                pw = PracticeWorld(
+                    config,
+                    ledger,
+                    request.owner,
+                    plan=request.plan,
+                    trading_date=request.trading_date,
+                    previous_close=None if request.fresh_prices else closes.get(request.owner),
+                )
+            except ValueError as error:
+                raise HTTPException(422, str(error)) from error
+            world_id = secrets.token_hex(6)
+            worlds[world_id] = pw
+            while len(worlds) > MAX_WORLDS_KEPT:
+                worlds.popitem(last=False)[1].end_early()
+            return {
+                **world_json(world_id, pw),
+                "plan": PLANS[request.plan].description,
+                **new_events(pw, dict.fromkeys(pw.world.sims, 0)),
+            }
+
+    @app.get("/api/worlds/{world_id}")
+    def get_world(world_id: str) -> dict[str, Any]:
+        with lock:
+            return world_json(world_id, find_world(world_id))
+
+    @app.get("/api/worlds/{world_id}/statement")
+    def world_statement(world_id: str) -> dict[str, Any]:
+        with lock:
+            pw = find_world(world_id)
+            statement = pw.statement()
+            prices = pw.world.prices()
+            listed = [(s, q) for s, q in statement.holdings if s in prices]
+            return {
+                "rows": [
+                    {
+                        "at": r.at,
+                        "kind": r.kind,
+                        "memo": r.memo,
+                        "symbol": r.symbol,
+                        "shares_change": r.shares_change,
+                        "value": r.value,
+                        "charges": {line: amount for line, amount in r.charges},
+                        "money_change": r.money_change,
+                        "money_after": r.money_after,
+                    }
+                    for r in statement.rows
+                ],
+                "starting_money": statement.starting_money,
+                "money": statement.money,
+                "holdings": dict(listed),
+                "bought": statement.bought,
+                "sold": statement.sold,
+                "traded_value": statement.traded_value,
+                "charges_by_line": statement.charges_by_line,
+                "total_charges": statement.total_charges,
+                "charges_basis_points": statement.charges_basis_points,
+                "worth": statement.money + sum(q * prices[s] for s, q in listed),
+                "problems": statement.check() + pw.ledger.verify(),
+            }
+
+    @app.post("/api/worlds/{world_id}/advance")
+    def advance_world(world_id: str, request: AdvanceRequest) -> dict[str, Any]:
+        with lock:
+            pw = find_world(world_id)
+            before = counts(pw)
+            result = pw.advance(request.seconds, pause_on_fill=request.pause_on_fill)
+            if result.finished:
+                closes[pw.owner] = pw.world.prices()
+            return {
+                **new_events(pw, before),
+                "now": result.now,
+                "stopped_for_fill": result.stopped_for_fill,
+                "finished": result.finished,
+                "snapshot": world_json(world_id, pw),
+            }
+
+    @app.post("/api/worlds/{world_id}/orders")
+    def place_world_order(world_id: str, request: WorldOrderRequest) -> dict[str, Any]:
+        with lock:
+            pw = find_world(world_id)
+            before = counts(pw)
+            try:
+                order_id, _ = pw.place(
+                    request.symbol, Side(request.side), request.quantity, request.limit_price, TimeInForce(request.tif)
+                )
+            except OrderRefused as refused:
+                raise HTTPException(422, str(refused)) from refused
+            return {"order_id": order_id, **new_events(pw, before), "now": pw.now, "snapshot": world_json(world_id, pw)}
+
+    @app.delete("/api/worlds/{world_id}/orders/{symbol}/{order_id}")
+    def cancel_world_order(world_id: str, symbol: str, order_id: int) -> dict[str, Any]:
+        with lock:
+            pw = find_world(world_id)
+            before = counts(pw)
+            try:
+                pw.cancel(symbol, order_id)
+            except OrderRefused as refused:
+                raise HTTPException(422, str(refused)) from refused
+            return {**new_events(pw, before), "now": pw.now, "snapshot": world_json(world_id, pw)}
+
+    @app.delete("/api/worlds/{world_id}")
+    def end_world(world_id: str) -> dict[str, Any]:
+        with lock:
+            pw = find_world(world_id)
+            pw.end_early()
+            worlds.pop(world_id, None)
+            return {"ended": True, "snapshot": world_json(world_id, pw)}
 
     @app.websocket("/ws/runs/{run_id}")
     async def stream(websocket: WebSocket, run_id: str, speed: float = 10.0, start: int = 0) -> None:

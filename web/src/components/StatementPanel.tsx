@@ -1,5 +1,5 @@
 import { clock, rupees, signed } from "../lib/format";
-import type { Statement, StatementRow } from "../lib/practice";
+import type { WorldStatement, WorldStatementRow } from "../lib/world";
 
 const LINE_NAMES: Record<string, string> = {
   brokerage: "Broker's fee",
@@ -11,7 +11,7 @@ const LINE_NAMES: Record<string, string> = {
   gst: "GST on fees",
 };
 
-function describeRow(row: StatementRow): string {
+function describeRow(row: WorldStatementRow): string {
   if (row.kind === "buy" || row.kind === "sell") {
     const shares = Math.abs(row.shares_change);
     const each = Math.round(row.value / shares);
@@ -21,17 +21,16 @@ function describeRow(row: StatementRow): string {
 }
 
 interface Props {
-  statement: Statement | null;
+  statement: WorldStatement | null;
   failed: boolean;
-  lastPrice: number | null;
+  prices: Record<string, number>; // the latest price of each company, to value what is held
 }
 
 /** What trading did to the account, and what the charges took. Built by the server from the ledger alone. */
-export function StatementPanel({ statement, failed, lastPrice }: Props) {
+export function StatementPanel({ statement, failed, prices }: Props) {
   if (statement === null) return <p className="muted small">{failed ? "The statement could not be loaded." : "Loading…"}</p>;
-  const price = lastPrice ?? statement.price;
-  const held = statement.holdings[statement.symbol] ?? 0;
-  const gain = statement.money + held * price - statement.starting_money;
+  const shares = Object.entries(statement.holdings).reduce((sum, [symbol, qty]) => sum + qty * (prices[symbol] ?? 0), 0);
+  const gain = statement.money + shares - statement.starting_money;
   const trades = statement.rows.filter((r) => r.kind === "buy" || r.kind === "sell");
   const lines = Object.entries(statement.charges_by_line).filter(([, amount]) => amount > 0);
   const percent = (statement.charges_basis_points / 100).toFixed(2);

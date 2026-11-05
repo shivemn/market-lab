@@ -19,7 +19,7 @@ export default function App() {
   const { start } = run;
 
   useEffect(() => {
-    void start({ seed: 7, open_seconds: 600, pre_open_seconds: 60, noise_traders: 20 });
+    void start({ seed: 7, open_seconds: 600, pre_open_seconds: 60, noise_traders: 20, company: "UDHAAR" });
   }, [start]);
 
   const latest = ends.length - 1;
@@ -73,7 +73,7 @@ export default function App() {
         <>
       <HowToRead />
       <PriceChart
-        symbol={summary?.instrument.symbol ?? "DEMO1"}
+        symbol={summary?.instrument.symbol ?? "UDHAAR"}
         trades={trades}
         state={state}
         durationUs={duration}
@@ -95,6 +95,7 @@ export default function App() {
             open_seconds: summary.config.open_seconds,
             pre_open_seconds: summary.config.pre_open_seconds,
             noise_traders: summary.config.noise_traders,
+            company: summary.instrument.symbol,
           });
         }}
         onPlayPause={run.togglePause}

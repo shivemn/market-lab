@@ -1,42 +1,48 @@
-import { useMemo } from "react";
-import { myActivity, recentTrades } from "../lib/activity";
+import { ReactNode, useMemo } from "react";
+import { ActivityItem, recentTrades } from "../lib/activity";
 import { clock, money } from "../lib/format";
 import type { MarketEvent } from "../lib/market";
-import type { Statement } from "../lib/practice";
 import { useThrottled } from "../lib/useThrottled";
 import { Help } from "./Help";
-import { StatementPanel } from "./StatementPanel";
+
+export type ActivityTab = "activity" | "companies" | "index" | "statement";
+
+const TABS: { key: ActivityTab; label: string }[] = [
+  { key: "activity", label: "Activity" },
+  { key: "companies", label: "Your result by company" },
+  { key: "index", label: "The index" },
+  { key: "statement", label: "Statement and costs" },
+];
 
 interface Props {
+  /** Your orders in every company, newest first. */
+  mine: readonly ActivityItem[];
+  /** The selected company's events, for the recent-trades list. */
   events: readonly MarketEvent[];
-  ends: readonly number[];
+  symbol: string;
   version: number;
   owner: string;
   playing: boolean;
-  statement: Statement | null;
-  statementFailed: boolean;
-  lastPrice: number | null;
-  tab: "activity" | "statement";
-  onTab: (tab: "activity" | "statement") => void;
+  tab: ActivityTab;
+  onTab: (tab: ActivityTab) => void;
+  panels: Record<Exclude<ActivityTab, "activity">, ReactNode>;
 }
 
-/** Two tabs under the chart: what happened to you, and what it cost. */
-export function Activity({ events, ends, version, owner, playing, statement, statementFailed, lastPrice, tab, onTab: setTab }: Props) {
-  const mine = useMemo(() => myActivity(events, ends, owner), [version, owner]);
-  const tapeNow = useMemo(() => recentTrades(events, 12, owner), [version, owner]);
+/** Tabs under the chart: what happened to you, how each company did, how the index is built, and what it all cost. */
+export function Activity({ mine, events, symbol, version, owner, playing, tab, onTab: setTab, panels }: Props) {
+  const tapeNow = useMemo(() => recentTrades(events, 12, owner), [version, owner, events]);
   const tape = useThrottled(tapeNow, playing ? 1000 : 0); // at 100x the tape would be a blur; once a second is readable
   return (
     <section className="panel activity" aria-label="Your activity">
       <div className="tabline" role="tablist">
-        <button role="tab" aria-selected={tab === "activity"} className={tab === "activity" ? "on" : ""} onClick={() => setTab("activity")}>
-          Activity
-        </button>
-        <button role="tab" aria-selected={tab === "statement"} className={tab === "statement" ? "on" : ""} onClick={() => setTab("statement")}>
-          Statement and costs
-        </button>
+        {TABS.map((t) => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} className={tab === t.key ? "on" : ""} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
       </div>
-      {tab === "statement" ? (
-        <StatementPanel statement={statement} failed={statementFailed} lastPrice={lastPrice} />
+      {tab !== "activity" ? (
+        panels[tab]
       ) : (
         <div className="act-grid">
           <div>
@@ -59,7 +65,7 @@ export function Activity({ events, ends, version, owner, playing, statement, sta
           </div>
           <div>
             <div className="ptitle">
-              <h3 className="sub">Recent trades</h3>
+              <h3 className="sub">Recent trades in {symbol}</h3>
               <Help>The latest trades in the market, updated once a second while the day runs. Your own are marked.</Help>
             </div>
             {tape.length === 0 ? (

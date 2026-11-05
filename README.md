@@ -82,10 +82,10 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 345 tests
+pytest                       # 379 tests
 ruff check .
 mypy
-cd web; npm test; cd ..      # 59 tests
+cd web; npm test; cd ..      # 61 tests
 ```
 
 ## How fast is it
@@ -135,6 +135,22 @@ Phase 2 (practice accounts, a ledger, Indian trading costs, your own orders, sta
 below. Next, in order and only if the project continues: an honest backtester that has to beat simple baselines after
 costs, then real announcements with an event study, then a plain-language app for learners. The plan and decisions
 are in [SPEC.md](SPEC.md).
+
+## Phase 3: a market of twelve companies
+
+![Twelve made-up companies in four sectors, the Shifty 12 index and how each company moved it](docs/img/market-index.png)
+
+The Practice tab now trades **twelve made-up companies**, three in each of the four sectors an economist names
+(primary, secondary, tertiary, quaternary), all on one clock with one seed. Their prices move together because each is
+built from a market-wide move, a sector move and its own noise, the way real stocks are. Each day opens at the
+previous day's closing prices.
+
+The **Shifty 12** index is worked out with the real formula: the sum of price times shares open to the public, divided by
+a fixed divisor. You can switch between by-company-size (Nifty, Sensex), every-company-the-same, and the Dow-style
+dearer-shares-count-more. The divisor logic is tested with a share split. Your result is shown company by company
+(locked in, on paper, charges, net) and against the index.
+
+![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-desk.png)
 
 ## Phase 2: practice accounts
 

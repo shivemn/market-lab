@@ -13,10 +13,10 @@ export function Header({ state, summary }: { state: MarketState; summary: Pick<R
     <header className="top">
       <div className="brand">
         <div className="brand-name">Market Lab</div>
-        <div className="muted small">Simulated money, made-up company</div>
+        <div className="muted small">Pretend money, made-up companies</div>
       </div>
       <div className="quote">
-        <span className="symbol">{summary?.instrument.symbol ?? "DEMO1"}</span>
+        <span className="symbol">{summary?.instrument.symbol ?? "…"}</span>
         <span className="price" aria-live="off">
           {price === null ? "…" : rupees(price)}
         </span>

@@ -1,35 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MarketEvent, Side } from "./market";
-import {
-  advance,
-  cancelOrder,
-  endPractice,
-  placeOrder,
-  Portfolio,
-  PracticeStart,
-  Refused,
-  startPractice,
-  StartRequest,
-  Update,
-} from "./practice";
 import type { Status } from "./useRun";
+import {
+  advanceWorld,
+  cancelWorldOrder,
+  endWorld,
+  placeWorldOrder,
+  Refused,
+  startWorld,
+  WorldRequest,
+  WorldSnapshot,
+  WorldUpdate,
+} from "./world";
 
 export { SPEEDS } from "./useRun";
 
 const TICK_MS = 250; // the browser asks the server to move the day on this often; the server has no clock of its own
 
+interface Stores {
+  events: Record<string, MarketEvent[]>;
+  ends: Record<string, number[]>;
+}
+
+const empty = (): Stores => ({ events: {}, ends: {} });
+
 /**
- * A practice day. The server only moves the day when asked, so this hook is the clock: while "playing" it asks for
- * `speed` simulated seconds per real second. Every call goes through one queue so replies can never arrive out of
- * order, and the events always add up to exactly what the server holds.
+ * A practice day across all twelve companies. The server only moves the day when asked, so this hook is the clock:
+ * while "playing" it asks for `speed` simulated seconds per real second. Every call goes through one queue so replies
+ * can never arrive out of order, and the events always add up to exactly what the server holds.
  */
-export function usePractice() {
-  const data = useRef({ events: [] as MarketEvent[], ends: [] as number[] });
+export function useWorld() {
+  const data = useRef<Stores>(empty());
+  const touched = useRef(new Set<string>()); // companies the person has sent an order to
   const [version, setVersion] = useState(0);
-  const [session, setSession] = useState<PracticeStart | null>(null);
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [startPortfolio, setStartPortfolio] = useState<Portfolio | null>(null);
-  const [now, setNow] = useState(0);
+  const [snapshot, setSnapshot] = useState<WorldSnapshot | null>(null);
+  const [first, setFirst] = useState<WorldSnapshot | null>(null);
+  const [plan, setPlan] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [speed, setSpeedState] = useState(10);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +44,7 @@ export function usePractice() {
 
   const chain = useRef<Promise<void>>(Promise.resolve());
   const waiting = useRef(0);
-  const sessionRef = useRef<PracticeStart | null>(null);
+  const worldRef = useRef<WorldSnapshot | null>(null);
   const speedRef = useRef(10);
   const token = useRef(0);
 
@@ -54,43 +60,42 @@ export function usePractice() {
     });
   }, []);
 
-  const take = useCallback((reply: Update) => {
-    data.current.events.push(...reply.new_events);
-    data.current.ends.push(...reply.new_ends);
-    if (reply.events !== undefined && reply.events !== data.current.events.length) {
-      throw new Error("The page and the server have gone out of step. Start a new day to carry on.");
+  const take = useCallback((reply: Pick<WorldUpdate, "new_events" | "new_ends" | "snapshot">) => {
+    for (const [symbol, events] of Object.entries(reply.new_events)) {
+      (data.current.events[symbol] ??= []).push(...events);
+      (data.current.ends[symbol] ??= []).push(...(reply.new_ends[symbol] ?? []));
     }
-    setNow(reply.now);
-    setPortfolio(reply.portfolio);
+    for (const [symbol, count] of Object.entries(reply.snapshot.event_counts)) {
+      if ((data.current.events[symbol]?.length ?? 0) !== count) {
+        throw new Error("The page and the server have gone out of step. Start a new day to carry on.");
+      }
+    }
+    setSnapshot(reply.snapshot);
     setVersion((v) => v + 1);
   }, []);
 
   const start = useCallback(
-    async (request: StartRequest) => {
+    async (request: WorldRequest) => {
       const mine = ++token.current;
-      const old = sessionRef.current;
-      sessionRef.current = null;
-      if (old) void endPractice(old.id).catch(() => undefined);
-      data.current = { events: [], ends: [] };
-      setSession(null);
-      setPortfolio(null);
-      setStartPortfolio(null);
+      const old = worldRef.current;
+      worldRef.current = null;
+      if (old) void endWorld(old.id).catch(() => undefined);
+      data.current = empty();
+      touched.current = new Set();
+      setSnapshot(null);
+      setFirst(null);
       setError(null);
       setRefusal(null);
       setNotice(null);
-      setNow(0);
       setStatus("starting");
       setVersion((v) => v + 1);
       try {
-        const opened = await enqueue(() => startPractice(request));
+        const opened = await enqueue(() => startWorld(request));
         if (mine !== token.current) return;
-        data.current = { events: [...opened.new_events], ends: [...opened.new_ends] };
-        sessionRef.current = opened;
-        setSession(opened);
-        setPortfolio(opened.portfolio);
-        setStartPortfolio(opened.portfolio);
-        setNow(opened.now);
-        setVersion((v) => v + 1);
+        worldRef.current = opened;
+        take({ new_events: opened.new_events, new_ends: opened.new_ends, snapshot: opened });
+        setFirst(opened);
+        setPlan(opened.plan);
         setStatus("paused"); // the person presses play when ready
       } catch (problem) {
         if (mine !== token.current) return;
@@ -98,17 +103,17 @@ export function usePractice() {
         setStatus("error");
       }
     },
-    [enqueue],
+    [enqueue, take],
   );
 
   // the clock
   useEffect(() => {
     if (status !== "playing") return;
     const timer = window.setInterval(() => {
-      const open = sessionRef.current;
+      const open = worldRef.current;
       if (!open || waiting.current > 0) return; // still busy with the last request: skip this beat
       const mine = token.current;
-      void enqueue(() => advance(open.id, (speedRef.current * TICK_MS) / 1000))
+      void enqueue(() => advanceWorld(open.id, (speedRef.current * TICK_MS) / 1000))
         .then((reply) => {
           if (mine !== token.current) return;
           take(reply);
@@ -142,8 +147,8 @@ export function usePractice() {
     setSpeedState(value);
   };
 
-  const run = async (work: (id: string) => Promise<Update>): Promise<boolean> => {
-    const open = sessionRef.current;
+  const run = async (work: (id: string) => Promise<WorldUpdate>): Promise<boolean> => {
+    const open = worldRef.current;
     if (!open) return false;
     const mine = token.current;
     try {
@@ -163,15 +168,17 @@ export function usePractice() {
     }
   };
 
-  const place = (side: Side, quantity: number, limitPrice: number | null) =>
-    run((id) => placeOrder(id, side, quantity, limitPrice));
-  const cancel = (orderId: number) => run((id) => cancelOrder(id, orderId));
+  const place = (symbol: string, side: Side, quantity: number, limitPrice: number | null) => {
+    touched.current.add(symbol);
+    return run((id) => placeWorldOrder(id, symbol, side, quantity, limitPrice));
+  };
+  const cancel = (symbol: string, orderId: number) => run((id) => cancelWorldOrder(id, symbol, orderId));
 
   useEffect(
     () => () => {
       token.current += 1;
-      const old = sessionRef.current;
-      if (old) void endPractice(old.id).catch(() => undefined);
+      const old = worldRef.current;
+      if (old) void endWorld(old.id).catch(() => undefined);
     },
     [],
   );
@@ -179,11 +186,11 @@ export function usePractice() {
   return {
     events: data.current.events,
     ends: data.current.ends,
+    touched: touched.current,
     version,
-    session,
-    portfolio,
-    startPortfolio,
-    now,
+    snapshot,
+    first,
+    plan,
     status,
     speed,
     error,

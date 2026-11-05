@@ -394,3 +394,11 @@ invariant from Week 9a; refusals do not change the day.
     and "Biggest move" text, which collided with the price line and the cursor label; Open, High, Low and yesterday's
     close sit in a row above the chart instead, and the markers keep a hover tooltip. The "Before the open" chip in the
     Terminal theme now has a fixed yellow background with dark text.
+18. **A market of twelve companies (Phase 3):** `world.py` runs twelve exchanges on one clock. Prices share a market
+    move and a sector move (`factors.py`, drawn once from the day's seed) plus their own noise, so an index is calmer than
+    one stock but not flat (a test checks both). `index.py` implements one formula, level = sum(price x q) / divisor, with
+    q = free-float shares (cap-weighted), 1 (price-weighted) or 1/(n x base price) (equal-weighted); `after_split` and
+    `rebalance` keep the level unchanged. Days open at the previous close and the index carries on. Per-company profit
+    and loss uses the average-cost method and adds up exactly to the account's total change (tested). Noise traders pull
+    quotes more than 0.4% from the price, which removes stale-order spikes. The server keeps closing prices in memory
+    only. Day and Opening-auction tabs still use one company (UDHAAR).

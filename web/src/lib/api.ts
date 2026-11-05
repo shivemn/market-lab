@@ -5,6 +5,7 @@ export interface RunRequest {
   open_seconds: number;
   pre_open_seconds: number;
   noise_traders: number;
+  company?: string; // a symbol from the catalogue
 }
 
 export interface RunSummary {

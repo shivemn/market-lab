@@ -1,19 +1,28 @@
 import { useEffect, useRef } from "react";
-import type { DayResult } from "../lib/dayresult";
 import { rupees, signed } from "../lib/format";
+import type { WorldDay } from "../lib/worldview";
 
 export interface PastDay {
   seed: number;
   result: number;
 }
 
+export interface CompanyResult {
+  symbol: string;
+  name: string;
+  today: number;
+}
+
 interface Props {
   open: boolean;
   seed: number;
-  symbol: string;
-  result: DayResult;
-  held: number;
-  lastPrice: number;
+  result: WorldDay;
+  /** Companies where something happened today, best first. */
+  companies: readonly CompanyResult[];
+  /** Companies you still hold shares in, as "UDHAAR 5". */
+  held: readonly string[];
+  versus: string; // "Behind Shifty 12 by 0.31%"
+  detail: string; // "you +0.00% · index +0.31%"
   days: readonly PastDay[];
   onClose: () => void;
   onStatement: () => void;
@@ -26,7 +35,7 @@ function headline(result: number): string {
 }
 
 /** Shown when the market closes: how the day went in money, and what happens next. */
-export function DaySummary({ open, seed, symbol, result, held, lastPrice, days, onClose, onStatement, onNextDay }: Props) {
+export function DaySummary({ open, seed, result, companies, held, versus, detail, days, onClose, onStatement, onNextDay }: Props) {
   const box = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = box.current;
@@ -59,10 +68,26 @@ export function DaySummary({ open, seed, symbol, result, held, lastPrice, days, 
           <dd>{rupees(result.endWorth)}</dd>
         </div>
       </dl>
-      {held > 0 && (
+      <p className="callout">
+        <b>{versus}.</b> {detail}.
+      </p>
+      {companies.length > 0 && (
+        <div>
+          <h3 className="sub">Company by company, today</h3>
+          <ul className="orders">
+            {companies.map((c) => (
+              <li key={c.symbol}>
+                <span>{c.name}</span>
+                <b className={c.today > 0 ? "up" : c.today < 0 ? "down" : ""}>{signed(c.today)}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {held.length > 0 && (
         <p className="callout">
-          You still hold {held} {symbol} {held === 1 ? "share" : "shares"}, valued at the last price of {rupees(lastPrice)}. The
-          result is on paper until you sell them, and selling adds more charges.
+          You still hold {held.join(", ")}, valued at the last prices. The result is on paper until you sell, and selling adds more
+          charges.
         </p>
       )}
       {days.length > 1 && (

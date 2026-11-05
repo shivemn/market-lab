@@ -6,6 +6,8 @@ import { Help } from "./Help";
 
 interface Props {
   state: MarketState;
+  /** The company being traded: its symbol and name, and an example price for the hint text. */
+  company: { symbol: string; name: string; example: string };
   tickSize: number;
   disabled: boolean;
   refusal: string | null;
@@ -24,7 +26,7 @@ export function toPaise(text: string): number | null {
 
 const QUICK = [1, 5, 10, 50];
 
-export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace, onClearRefusal }: Props) {
+export function OrderTicket({ state, company, tickSize, disabled, refusal, pick, onPlace, onClearRefusal }: Props) {
   const [side, setSide] = useState<Side>("BUY");
   const [kind, setKind] = useState<"market" | "limit">("market");
   const [quantityText, setQuantityText] = useState("5");
@@ -38,6 +40,11 @@ export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace,
     onClearRefusal();
   }, [pick?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setPriceText(""); // a price typed for one company means nothing for another
+    onClearRefusal();
+  }, [company.symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const quantity = /^\d+$/.test(quantityText) ? Number(quantityText) : 0;
   const bid = state.bestBid();
   const ask = state.bestAsk();
@@ -46,7 +53,7 @@ export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace,
     kind !== "limit"
       ? null
       : price === null
-        ? "Type a price in rupees, for example 2500.05."
+        ? `Type a price in rupees, for example ${company.example}.`
         : price % tickSize !== 0
           ? `Prices move in steps of ${rupees(tickSize)}. Try ${rupees(Math.round(price / tickSize) * tickSize)}.`
           : null;
@@ -77,6 +84,9 @@ export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace,
           until someone meets your price. Before the open, orders wait for the opening auction.
         </Help>
       </div>
+      <p className="ticket-for" title={company.name}>
+        in <b>{company.symbol}</b> <span className="muted">{company.name}</span>
+      </p>
       <div className="seg" role="group" aria-label="Buy or sell">
         {(["BUY", "SELL"] as const).map((s) => (
           <button
@@ -115,7 +125,7 @@ export function OrderTicket({ state, tickSize, disabled, refusal, pick, onPlace,
       {kind === "limit" && (
         <div className="field">
           <label htmlFor="px">Price per share, ₹</label>
-          <input id="px" inputMode="decimal" value={priceText} placeholder="2500.00" onChange={(e) => setPriceText(e.target.value)} />
+          <input id="px" inputMode="decimal" value={priceText} placeholder={company.example} onChange={(e) => setPriceText(e.target.value)} />
           <div className="chips">
             <button type="button" className="chip-btn" disabled={bid === null} onClick={() => setPrice(bid)}>
               Best buyer {bid === null ? "–" : money(bid)}

@@ -1,20 +1,26 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { dayResult } from "../lib/dayresult";
+import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
-import { PlanName, StartRequest } from "../lib/practice";
 import { tradeSeries } from "../lib/series";
-import { usePractice } from "../lib/usePractice";
 import { useStatement } from "../lib/useStatement";
+import { useWorld } from "../lib/useWorld";
+import type { IndexKind, WorldRequest } from "../lib/world";
+import { compare, indexPercent, sign, worldDay } from "../lib/worldview";
 import { AccountStrip } from "./AccountStrip";
-import { Activity } from "./Activity";
+import { Activity, ActivityTab } from "./Activity";
+import { CompaniesPanel } from "./CompaniesPanel";
 import { DaySummary, PastDay } from "./DaySummary";
-import { Header } from "./Header";
+import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
+import { MarketBoard } from "./MarketBoard";
 import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
 import { PriceChart } from "./PriceChart";
+import { StatementPanel } from "./StatementPanel";
+import { WorldHeader } from "./WorldHeader";
 
-type Practice = ReturnType<typeof usePractice>;
+type Practice = ReturnType<typeof useWorld>;
+type PlanName = WorldRequest["plan"];
 
 function StartCard({ practice, again }: { practice: Practice; again?: boolean }) {
   const [owner, setOwner] = useState("you");
@@ -27,7 +33,7 @@ function StartCard({ practice, again }: { practice: Practice; again?: boolean })
       <p className="muted lead">
         {again
           ? "Your cash and shares carry over. Orders still waiting are returned first."
-          : "You start with ₹1,00,000 of pretend money. Place orders, watch them meet the market, and see every tax and charge a real investor would pay. Nothing here is real or advice."}
+          : "You start with ₹1,00,000 of pretend money. Twelve made-up companies trade together. Buy and sell, follow the Shifty 12 index, and see every tax and charge a real investor would pay. Nothing here is real or advice."}
       </p>
       <label className="field">
         Your name for the account (letters and numbers)
@@ -79,8 +85,7 @@ function Coach() {
   return (
     <div className="coach" role="note">
       <span>
-        <b>1</b> Press play. <b>2</b> Choose buy or sell and a number of shares. <b>3</b> Watch the ladder, your orders and
-        your account on the right and below.
+        <b>1</b> Press play. <b>2</b> Pick a company, then choose buy or sell and a number of shares. <b>3</b> Compare yourself with the index.
       </span>
       <button
         className="btn small-btn"
@@ -100,159 +105,177 @@ function Coach() {
 }
 
 export function PracticeView({ tabs }: { tabs: ReactNode }) {
-  const practice = usePractice();
-  const { events, ends, version, session, portfolio } = practice;
+  const world = useWorld();
+  const { events, ends, touched, version, snapshot, first } = world;
+  const [selected, setSelected] = useState("UDHAAR");
+  const [kind, setKind] = useState<IndexKind>("cap");
   const [pick, setPick] = useState<{ price: number; nonce: number } | null>(null);
-  const state = useMemo(() => fold(events), [version]);
-  const trades = useMemo(() => tradeSeries(events), [version]);
-  const stamp = portfolio === null ? "" : [portfolio.cash, portfolio.reserved, portfolio.shares, portfolio.locked].join(":");
-  const { statement, failed } = useStatement(session?.id ?? null, stamp);
-  const [tab, setTab] = useState<"activity" | "statement">("activity");
+  const [tab, setTab] = useState<ActivityTab>("activity");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [days, setDays] = useState<PastDay[]>([]);
-  const lastRequest = useRef<StartRequest | null>(null);
-  const chargesBefore = useRef<{ id: string; charges: number } | null>(null);
+  const lastRequest = useRef<WorldRequest | null>(null);
   const summarised = useRef<string | null>(null);
-  // Shares carried into a new day are valued at where the last day left them, so the days add up to the whole result.
-  const lastClose = useRef<number | null>(null);
-  const startPrice = useRef<{ id: string; price: number } | null>(null);
-  useEffect(() => {
-    if (session !== null && startPrice.current?.id !== session.id) {
-      startPrice.current = { id: session.id, price: lastClose.current ?? session.instrument.reference_price };
-    }
-  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const dayStartPrice =
-    session !== null && startPrice.current?.id === session.id ? startPrice.current.price : session?.instrument.reference_price ?? 0;
 
-  // the charges the account had paid before this day, so the day's own charges can be told apart
-  useEffect(() => {
-    if (statement !== null && session !== null && chargesBefore.current?.id !== session.id) {
-      chargesBefore.current = { id: session.id, charges: statement.total_charges };
-    }
-  }, [statement, session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const company = snapshot?.companies.find((c) => c.symbol === selected) ?? snapshot?.companies[0] ?? null;
+  const symbol = company?.symbol ?? selected;
+  const state = useMemo(() => fold(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+  const trades = useMemo(() => tradeSeries(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+  const owner = snapshot?.owner ?? "";
+  const mine = useMemo<ActivityItem[]>(() => {
+    const all: ActivityItem[] = [];
+    [...touched].forEach((s, i) => {
+      for (const item of myActivity(events[s] ?? [], ends[s] ?? [], owner)) {
+        all.push({ ...item, key: item.key * 16 + i, text: `${s}: ${item.text}` });
+      }
+    });
+    return all.sort((a, b) => b.at - a.at || b.key - a.key);
+  }, [version, owner]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const today =
-    session !== null && portfolio !== null && practice.startPortfolio !== null && statement !== null && chargesBefore.current !== null
-      ? dayResult(
-          practice.startPortfolio,
-          portfolio,
-          dayStartPrice,
-          state.lastPrice,
-          statement.total_charges - chargesBefore.current.charges,
-        )
-      : null;
+  const stamp =
+    snapshot === null
+      ? ""
+      : [snapshot.portfolio.cash, snapshot.portfolio.reserved, snapshot.total_charges, ...Object.values(snapshot.portfolio.holdings).map((h) => `${h.shares}/${h.locked}`)].join(":");
+  const { statement, failed } = useStatement(snapshot?.id ?? null, stamp);
+
+  const day = snapshot !== null && first !== null ? worldDay(first, snapshot) : null;
+  const versus =
+    snapshot !== null && day !== null ? compare(day.youPercent, indexPercent(snapshot, kind), snapshot.index_name) : null;
 
   // when the market closes, say how the day went (once the statement has caught up with the final balances)
   useEffect(() => {
-    if (practice.status !== "done" || session === null || portfolio === null || statement === null || today === null) return;
-    if (summarised.current === session.id || statement.money !== portfolio.cash + portfolio.reserved) return;
-    summarised.current = session.id;
-    setDays((list) => [...list, { seed: session.config.seed, result: today.result }]);
+    if (world.status !== "done" || snapshot === null || statement === null || day === null) return;
+    if (summarised.current === snapshot.id || statement.money !== snapshot.portfolio.cash + snapshot.portfolio.reserved) return;
+    summarised.current = snapshot.id;
+    setDays((list) => [...list, { seed: snapshot.config.seed, result: day.result }]);
     setDialogOpen(true);
-  }, [practice.status, session?.id, statement, portfolio]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [world.status, snapshot?.id, statement, snapshot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startDay = (request: StartRequest) => {
+  const startDay = (request: WorldRequest) => {
     lastRequest.current = request;
-    lastClose.current = session === null ? null : (state.lastPrice ?? dayStartPrice);
-    return practice.start(request);
+    setPick(null);
+    return world.start(request);
   };
   const nextDay = () => {
-    if (session === null) return;
-    const last = lastRequest.current ?? { owner: session.owner, seed: session.config.seed, plan: "zero" as PlanName };
+    if (snapshot === null) return;
+    const last = lastRequest.current ?? { owner: snapshot.owner, seed: snapshot.config.seed, plan: "zero" as PlanName };
     setDialogOpen(false);
     void startDay({ ...last, seed: last.seed + 1 });
   };
 
+  const companyResults =
+    snapshot === null
+      ? []
+      : snapshot.companies
+          .filter((c) => touched.has(c.symbol) || (snapshot.positions[c.symbol]?.today ?? 0) !== 0)
+          .map((c) => ({ symbol: c.symbol, name: c.name, today: snapshot.positions[c.symbol]?.today ?? 0 }))
+          .sort((a, b) => b.today - a.today);
+  const held =
+    snapshot === null
+      ? []
+      : Object.entries(snapshot.portfolio.holdings)
+          .filter(([, h]) => h.shares + h.locked > 0)
+          .map(([s, h]) => `${s} ${h.shares + h.locked}`);
+
   return (
     <div className="app desk">
-      <Header state={state} summary={session} />
+      <WorldHeader snapshot={snapshot} kind={kind} />
       {tabs}
-      {session === null || portfolio === null ? (
-        <StartCard practice={{ ...practice, start: startDay }} />
+      {snapshot === null || first === null || company === null ? (
+        <StartCard practice={{ ...world, start: startDay }} />
       ) : (
         <>
-          <AccountStrip
-            portfolio={portfolio}
-            start={practice.startPortfolio}
-            statement={statement}
-            lastPrice={state.lastPrice}
-            previousClose={dayStartPrice}
-            symbol={session.instrument.symbol}
-          />
+          <AccountStrip snapshot={snapshot} first={first} kind={kind} />
           <Coach />
-          {practice.notice && (
+          {world.notice && (
             <p className="notice" role="status">
-              <span>{practice.notice}</span>
-              {practice.status === "done" && today !== null && (
+              <span>{world.notice}</span>
+              {world.status === "done" && day !== null && (
                 <button className="btn small-btn" onClick={() => setDialogOpen(true)}>
                   See how the day went
                 </button>
               )}
             </p>
           )}
+          <MarketBoard
+            snapshot={snapshot}
+            selected={symbol}
+            onSelect={(s) => {
+              setSelected(s);
+              setPick(null);
+            }}
+          />
           <div className="desk-grid">
             <div className="desk-main">
               <PriceChart
-                symbol={session.instrument.symbol}
+                symbol={company.name}
                 trades={trades}
                 state={state}
-                durationUs={session.close_at}
-                preOpenUs={session.open_at}
-                referencePrice={session.instrument.reference_price}
-                nowUs={practice.now}
+                durationUs={snapshot.close_at}
+                preOpenUs={snapshot.open_at}
+                referencePrice={company.instrument.reference_price}
+                nowUs={snapshot.now}
                 following
-                status={practice.status}
-                speed={practice.speed}
+                status={world.status}
+                speed={world.speed}
                 biggest={null}
                 practice
                 onSeek={() => undefined}
                 onLive={() => undefined}
                 onReplay={() => undefined}
-                onPlayPause={practice.togglePause}
-                onSpeed={practice.setSpeed}
+                onPlayPause={world.togglePause}
+                onSpeed={world.setSpeed}
                 onAuction={() => undefined}
                 onBiggest={() => undefined}
               />
               <Activity
-                events={events}
-                ends={ends}
+                mine={mine}
+                events={events[symbol] ?? []}
+                symbol={symbol}
                 version={version}
-                owner={session.owner}
-                playing={practice.status === "playing"}
-                statement={statement}
-                statementFailed={failed}
-                lastPrice={state.lastPrice}
+                owner={owner}
+                playing={world.status === "playing"}
                 tab={tab}
                 onTab={setTab}
+                panels={{
+                  companies: <CompaniesPanel snapshot={snapshot} />,
+                  index: <IndexPanel snapshot={snapshot} kind={kind} onKind={setKind} />,
+                  statement: <StatementPanel statement={statement} failed={failed} prices={snapshot.prices} />,
+                }}
               />
             </div>
             <aside className="desk-side" aria-label="Trading">
               <OrderTicket
                 state={state}
-                tickSize={session.instrument.tick_size}
-                disabled={practice.status === "done" || practice.status === "error"}
-                refusal={practice.refusal}
+                company={{ symbol, name: company.name, example: ((state.lastPrice ?? company.instrument.reference_price) / 100).toFixed(2) }}
+                tickSize={company.instrument.tick_size}
+                disabled={world.status === "done" || world.status === "error"}
+                refusal={world.refusal}
                 pick={pick}
-                onPlace={practice.place}
-                onClearRefusal={practice.clearRefusal}
+                onPlace={(side, quantity, limit) => world.place(symbol, side, quantity, limit)}
+                onClearRefusal={world.clearRefusal}
               />
-              <Ladder state={state} mine={portfolio.open_orders} onPick={(price) => setPick({ price, nonce: (pick?.nonce ?? 0) + 1 })} />
-              <OpenOrders orders={portfolio.open_orders} onCancel={(id) => void practice.cancel(id)} />
+              <Ladder
+                state={state}
+                mine={snapshot.portfolio.open_orders.filter((o) => o.symbol === symbol)}
+                onPick={(price) => setPick({ price, nonce: (pick?.nonce ?? 0) + 1 })}
+              />
+              <OpenOrders orders={snapshot.portfolio.open_orders} onCancel={(s, id) => void world.cancel(s, id)} />
             </aside>
           </div>
-          {practice.error && (
+          {world.error && (
             <p className="error" role="alert">
-              {practice.error}
+              {world.error}
             </p>
           )}
-          {today !== null && (
+          {day !== null && versus !== null && (
             <DaySummary
               open={dialogOpen}
-              seed={session.config.seed}
-              symbol={session.instrument.symbol}
-              result={today}
-              held={portfolio.shares + portfolio.locked}
-              lastPrice={state.lastPrice ?? session.instrument.reference_price}
+              seed={snapshot.config.seed}
+              result={day}
+              companies={companyResults}
+              held={held}
+              versus={versus.words}
+              detail={`You ${sign(versus.you)}, the index ${sign(versus.index)}`}
               days={days}
               onClose={() => setDialogOpen(false)}
               onStatement={() => {
@@ -264,12 +287,12 @@ export function PracticeView({ tabs }: { tabs: ReactNode }) {
           )}
           <details className="panel picker">
             <summary>Start a new day</summary>
-            <StartCard practice={{ ...practice, start: startDay }} again />
+            <StartCard practice={{ ...world, start: startDay }} again />
           </details>
           <p className="muted small foot-note">
-            Day number {session.config.seed}. The same day number gives the same market until you place an order; after that
-            the simulated traders react to you. Charges: {session.plan} All prices and people here are simulated. Nothing on
-            this page is investment advice.
+            Day number {snapshot.config.seed}. The same day number gives the same market until you place an order; after that
+            the simulated traders react to you. Each day opens at the previous day's closing prices. Charges: {world.plan} All
+            prices, companies and people here are made up. Nothing on this page is investment advice.
           </p>
         </>
       )}

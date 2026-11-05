@@ -163,8 +163,10 @@ class NoiseTrader(Trader):
         size_mu: float = 1.0,
         size_sigma: float = 1.0,
         max_lots: int = 200,
+        stale_fraction: float = 0.0,
     ) -> None:
         super().__init__(account_id, rate)
+        self.stale_fraction = stale_fraction  # 0 means never tidy up; otherwise drop orders this far from the price
         self.market_order_chance = market_order_chance
         self.cancel_chance = cancel_chance
         self.size_mu = size_mu
@@ -176,9 +178,25 @@ class NoiseTrader(Trader):
         lots = int(ctx.rng.lognormal(self.size_mu, self.size_sigma))
         return min(max(lots, 1), self.max_lots) * ctx.instrument.lot_size
 
+    def _stale(self, ctx: Context, resting: list[int]) -> list[int]:
+        """This trader's resting orders that the price has walked away from. Nobody leaves a quote that far off."""
+        if self.stale_fraction <= 0 or ctx.state.session is not Session.OPEN:
+            return []
+        anchor = ctx.reference()
+        far: list[int] = []
+        for order_id in resting:
+            if abs(ctx.state.orders[order_id].price - anchor) > self.stale_fraction * anchor:
+                far.append(order_id)
+        return far
+
     def act(self, ctx: Context) -> list[Command]:
         commands: list[Command] = []
         resting = self._still_resting(ctx)
+        stale = self._stale(ctx, resting)
+        if stale:
+            for order_id in stale:
+                self._live.remove(order_id)
+            return [CancelOrder(order_id) for order_id in stale]
         if resting and ctx.rng.chance(self.cancel_chance):
             victim = resting[ctx.rng.randint(0, len(resting) - 1)]
             commands.append(CancelOrder(victim))

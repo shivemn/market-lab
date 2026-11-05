@@ -1,12 +1,12 @@
 import { buildLadder, LadderRow } from "../lib/activity";
 import { money, rupees } from "../lib/format";
 import type { MarketState } from "../lib/market";
-import type { OpenOrder } from "../lib/practice";
+import type { WorldOpenOrder } from "../lib/world";
 import { Help } from "./Help";
 
 interface Props {
   state: MarketState;
-  mine: readonly OpenOrder[];
+  mine: readonly WorldOpenOrder[];
   levels?: number;
   onPick: (price: number) => void;
 }
