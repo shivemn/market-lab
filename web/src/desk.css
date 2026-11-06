@@ -237,13 +237,13 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .coach-steps li.done { background: var(--buy); }
 .coach-steps li.now { background: var(--ink); }
 
-/* the event list is a box of fixed size, so nothing around it can move when lines arrive */
-.happened-card { align-self: start; }
-.happened-wrap { position: relative; }
-.happened { height: 460px; padding-right: 8px; scrollbar-gutter: stable; }
+/* the event list fills the card, which is as tall as the queue beside it; its lines scroll inside, so nothing around it can move */
+.happened-card { min-height: 360px; }
+.happened-wrap { position: relative; flex: 1 1 auto; min-height: 280px; }
+.happened { position: absolute; inset: 0; margin: 0; padding: 0 8px 0 0; scrollbar-gutter: stable; }
 .happened li { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
 .happened li .t { display: inline-block; min-width: 3.4em; margin-right: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
-.happened-wrap .muted { height: 460px; margin: 0; }
+.happened-wrap .muted { margin: 0; }
 .to-latest { position: absolute; right: 18px; bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 
 /* news */

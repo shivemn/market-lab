@@ -107,6 +107,19 @@ spends its time. A whole day (about 5,000 events) takes roughly 0.135 s on a clo
 of that goes on encoding and hashing the events and on the traders' own decisions. The exchange itself is a small
 share. Making matching faster would not make the simulation noticeably faster.
 
+## How the maths works
+
+The full write-up, with worked examples produced by the code, is in [docs/MATHS.md](docs/MATHS.md). In short:
+
+- **Prices:** each company's hidden fair value moves as geometric Brownian motion with jumps, plus a market move shared by
+  all twelve (scaled by each company's beta) and a sector move shared by three.
+- **Trades:** price-time priority during the day, and one equilibrium price at the open that maximises the shares traded.
+- **The index:** $\text{Index} = \sum p_i q_i / D$ with free-float shares as the weights and a divisor $D$ that keeps the
+  level continuous. Price-weighted and equal-weighted versions are one toggle away.
+- **Costs:** STT 0.1%, exchange charge ₹307 per crore, SEBI ₹10 per crore, stamp duty 0.015% on buys, 18% GST on the
+  broker and exchange fees, all exact fractions.
+- **Profit and loss:** average-cost method per company; the parts add up to the whole account exactly.
+
 ## System design
 
 One Python process serves the web page and the API. Nothing else is needed to run it: no queue, no separate database
