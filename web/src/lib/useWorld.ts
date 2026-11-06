@@ -15,7 +15,8 @@ import {
 
 export { SPEEDS } from "./useRun";
 
-const TICK_MS = 250; // the browser asks the server to move the day on this often; the server has no clock of its own
+const TICK_MS = 1000; // the browser asks the server to move the day on this often; the server has no clock of its own.
+// Once a second, not four times: each request carries `speed` simulated seconds, so the load on the server is a quarter.
 
 interface Stores {
   events: Record<string, MarketEvent[]>;

@@ -181,3 +181,40 @@ def test_news_comes_out_during_the_day_and_is_kept_in_the_history(client: TestCl
     assert all(item["impact_bp"] is not None for item in last["snapshot"]["news"])
     saved = client.get("/api/accounts/you/days").json()["days"][0]
     assert len(saved["news"]) == 8
+
+
+def test_many_people_can_each_keep_a_live_day(client: TestClient) -> None:
+    ids = [client.post("/api/worlds", json={**SMALL, "owner": f"p{n}"}).json()["id"] for n in range(8)]
+    assert all(client.get(f"/api/worlds/{i}").status_code == 200 for i in ids)  # the old limit of 4 is gone
+
+
+def test_a_day_nobody_touches_is_saved_and_let_go(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    import marketlab.api.app as app_module
+
+    now = [1000.0]
+    monkeypatch.setattr(app_module, "_now", lambda: now[0])
+    idle = client.post("/api/worlds", json={**SMALL, "owner": "idle"}).json()["id"]
+    busy = client.post("/api/worlds", json={**SMALL, "owner": "busy"}).json()["id"]
+    client.post(f"/api/worlds/{idle}/advance", json={"seconds": 6, "pause_on_fill": False})
+    client.post(f"/api/worlds/{idle}/orders", json={"symbol": "BIJLI", "side": "BUY", "quantity": 2})
+    client.post(f"/api/worlds/{idle}/advance", json={"seconds": 3, "pause_on_fill": False})
+    now[0] += app_module.IDLE_SECONDS - 60
+    assert client.get(f"/api/worlds/{busy}").status_code == 200  # using a day keeps it alive
+    now[0] += 120  # `idle` has now sat for longer than the limit; `busy` was used a minute before
+    client.post("/api/worlds", json={**SMALL, "owner": "newcomer"})  # starting a day tidies up
+    assert client.get(f"/api/worlds/{idle}").status_code == 404
+    assert client.get(f"/api/worlds/{busy}").status_code == 200
+    assert client.get("/api/accounts/idle/days").json()["days"]  # it traded, so it is in the history
+
+
+def test_over_the_limit_the_least_recently_used_day_goes_first(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
+    import marketlab.api.app as app_module
+
+    monkeypatch.setattr(app_module, "MAX_WORLDS_KEPT", 3)
+    ids = [client.post("/api/worlds", json={**SMALL, "owner": f"p{n}"}).json()["id"] for n in range(3)]
+    client.get(f"/api/worlds/{ids[0]}")  # the first day is used again, so the second is now the oldest
+    client.post("/api/worlds", json={**SMALL, "owner": "p3"})
+    assert client.get(f"/api/worlds/{ids[1]}").status_code == 404
+    assert client.get(f"/api/worlds/{ids[0]}").status_code == 200

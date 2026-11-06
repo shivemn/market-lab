@@ -122,7 +122,7 @@ The full write-up, with worked examples produced by the code, is in [docs/MATHS.
 
 ## How many people can play at once?
 
-Measured, not guessed: one server process handles about 50 people comfortably (about 25 at fast playback), then slows sharply. The test, the numbers and what they change are in [docs/LOADTEST.md](docs/LOADTEST.md); the test itself is `tools/loadtest.py`.
+Measured, not guessed: one server process handles about 100 people comfortably at normal speed (about 25 at fast playback), then slows sharply. The test, the numbers and what they change are in [docs/LOADTEST.md](docs/LOADTEST.md); the test itself is `tools/loadtest.py`.
 
 ## System design
 

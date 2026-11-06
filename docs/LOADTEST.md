@@ -50,8 +50,8 @@ Playback speed 10 (each request simulates 2.5 s of market instead of 0.25 s):
    lock), so it tops out near 200 requests/s. Past that, requests queue: delay jumps from tens of
    milliseconds to hundreds, then seconds. Adding more cores does not help while it is one process.
 3. **Most of that load is the 250 ms polling, not the trading.** 100 users send 400 requests a second to
-   move 100 clocks. Sending one request per second, with the server returning a batch, would cut the load
-   about four times for the same experience.
+   move 100 clocks. Sending one request per second instead would cut the number of requests four times (the
+   simulation work itself stays the same; see "After step 1").
 4. **Memory grows with how much of the day has been played**, because each day keeps its full event list.
    Speed 10 used about 4 MB per user after 25 s (40% of a day), so a full day is roughly 10 MB.
    500 people mid-day is on the order of 5 GB; a free 512 MB host holds about 40 players.
@@ -60,11 +60,35 @@ Playback speed 10 (each request simulates 2.5 s of market instead of 0.25 s):
 
 ## What changes because of this
 
-- Raise or remove the live-day cap and expire idle days after a timeout instead.
-- Poll once a second, not four times (biggest single win).
+- Raise the live-day cap and expire idle days after a timeout instead. **Done** (500 live days, idle 30 minutes).
+- Poll once a second, not four times. **Done** (see below).
 - Run several server processes, with each user always sent to the same one (their day lives in memory).
 - Move the database from SQLite to Postgres, since many processes cannot share one SQLite writer comfortably.
 - Free 512 MB hosting is a demo, not a crowd: plan for tens of players there, hundreds only on a bigger box.
 
 Caveat: fake users are polite and identical. Real people open extra tabs, pause, and leave days
 half-finished, which the idle timeout has to handle.
+
+## After step 1 (cap raised, idle days let go, polling once a second)
+
+Same machine, same test (`--tick 1.0` is now the default because the page now asks once a second):
+
+| Users | Speed | Requests/s served | Median | Slowest 5% | Server CPU | Memory |
+|---:|---:|---:|---:|---:|---:|---:|
+| 100 | 1 | 92 of 100 | 10 ms | 33 ms | 53% | 145 MB |
+| 200 | 1 | 106 of 200 | 1.4 s | 1.9 s | 84% | 195 MB |
+| 400 | 1 | 37 of 400 | 4.7 s | 9.8 s | 47% | 234 MB |
+| 50 | 10 | 39 of 50 | 0.9 s | 1.5 s | 88% | 303 MB |
+
+- At normal speed, 100 users are now smooth (before: 456 ms median at 100 users). One process holds
+  roughly **100 comfortable players, up from about 50**. Not four times: each request now carries four
+  times as much simulated market, so the total simulation work is unchanged; only the per-request
+  overhead (building the page snapshot, JSON) shrank.
+- At speed 10 the simulation itself is the cost, so the gain is small: about 25-30 comfortable players.
+- Past the limit the server does not crash; it queues. At 400 users a few requests were cut off by the
+  test's own client (ReadError), and the fake client shares the CPUs, so treat 200+ as "over the limit",
+  not as exact figures.
+- The page now moves in one-second steps instead of quarter-second steps (the clock and chart jump
+  once a second at speed 1, ten simulated seconds at a time at speed 10). Trades still pause the day
+  exactly when they happen.
+- Further gains need more than one process (step 3 of the plan): the next wall is one core.

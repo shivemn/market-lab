@@ -45,6 +45,7 @@ import bisect
 import re
 import secrets
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date
@@ -74,7 +75,9 @@ from marketlab.world import (
 
 MAX_RUNS_KEPT = 16
 MAX_SESSIONS_KEPT = 8
-MAX_WORLDS_KEPT = 4
+MAX_WORLDS_KEPT = 500  # a safety limit on live days held in memory; the least recently used one goes first
+IDLE_SECONDS = 30 * 60  # a day nobody has touched for this long is saved to history and let go
+_now = time.monotonic  # a name of its own so a test can move the clock
 MAX_PAGE = 20_000
 MICROS = 1_000_000
 
@@ -400,6 +403,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         str, dict[str, int]
     ] = {}  # each account's last closing prices, so a new day opens where the last ended
     lock = threading.Lock()  # one request at a time touches the ledger and the sessions
+    touched: dict[str, float] = {}  # when each live day was last used (monotonic seconds)
     saved: set[int] = set()  # practice worlds (by object id) whose day is already in the history
 
     def save_day(pw: PracticeWorld) -> None:
@@ -424,7 +428,23 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         world = worlds.get(world_id)
         if world is None:
             raise HTTPException(404, "unknown world: start one with POST /api/worlds (worlds are kept in memory)")
+        worlds.move_to_end(world_id)  # the order of `worlds` is "least recently used first"
+        touched[world_id] = _now()
         return world
+
+    def let_go(world_id: str) -> None:
+        pw = worlds.pop(world_id)
+        touched.pop(world_id, None)
+        save_day(pw)
+        pw.end_early()  # money set aside for waiting orders comes back
+
+    def sweep() -> None:
+        """Let go of days nobody has touched for IDLE_SECONDS, then of the least recently used if over the limit."""
+        now = _now()
+        for world_id in [i for i in worlds if now - touched.get(i, now) > IDLE_SECONDS]:
+            let_go(world_id)
+        while len(worlds) > MAX_WORLDS_KEPT:
+            let_go(next(iter(worlds)))
 
     def new_events(pw: PracticeWorld, before: dict[str, int]) -> dict[str, Any]:
         sims = pw.world.sims
@@ -593,9 +613,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         )
         with lock:
             for old_id in [i for i, other in worlds.items() if other.owner == request.owner]:
-                old = worlds.pop(old_id)
-                save_day(old)
-                old.end_early()  # one day at a time per account; money set aside comes back
+                let_go(old_id)  # one day at a time per account
             try:
                 pw = PracticeWorld(
                     config,
@@ -611,10 +629,8 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 raise HTTPException(422, str(error)) from error
             world_id = secrets.token_hex(6)
             worlds[world_id] = pw
-            while len(worlds) > MAX_WORLDS_KEPT:
-                evicted = worlds.popitem(last=False)[1]
-                save_day(evicted)
-                evicted.end_early()
+            touched[world_id] = _now()
+            sweep()
             return {
                 **world_json(world_id, pw),
                 "plan": PLANS[request.plan].description,
@@ -717,6 +733,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             save_day(pw)
             pw.end_early()
             worlds.pop(world_id, None)
+            touched.pop(world_id, None)
             return {"ended": True, "snapshot": world_json(world_id, pw)}
 
     @app.websocket("/ws/runs/{run_id}")

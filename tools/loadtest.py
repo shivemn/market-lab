@@ -1,7 +1,7 @@
 """Load test: many fake users playing a practice day at once, against the real API.
 
-Each fake user does what the page does: start a day, then every 250 ms ask the server to move the clock on
-by (speed x 0.25) simulated seconds, and now and then place an order. We time every request and count failures.
+Each fake user does what the page does: start a day, then every second (--tick) ask the server to move the clock on
+by (speed x tick) simulated seconds, and now and then place an order. We time every request and count failures.
 
     python tools/loadtest.py --url http://127.0.0.1:8100 --users 50 --seconds 30 --speed 1 --server-pid 1234
 
@@ -21,7 +21,6 @@ import httpx
 
 from marketlab.world import CATALOGUE
 
-TICK = 0.25  # the page's tick, in real seconds
 SYMBOLS = [c.symbol for c in CATALOGUE]
 
 
@@ -56,10 +55,10 @@ async def user(n: int, client: httpx.AsyncClient, stats: Stats, args: argparse.N
     next_tick = time.perf_counter()
     last_order = time.perf_counter()
     while time.perf_counter() < stop_at:
-        next_tick += TICK
+        next_tick += args.tick
         t = time.perf_counter()
         try:
-            body = {"seconds": args.speed * TICK, "pause_on_fill": False}
+            body = {"seconds": args.speed * args.tick, "pause_on_fill": False}
             r = await client.post(f"/api/worlds/{world}/advance", json=body)
             if r.status_code == 404:
                 stats.lost_days += 1
@@ -116,7 +115,7 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         "days_lost": stats.lost_days,
         "advance_requests": len(adv),
         "requests_per_s": round(len(adv) / elapsed, 1),
-        "wanted_per_s": round(args.users / TICK, 1),
+        "wanted_per_s": round(args.users / args.tick, 1),
         "advance_ms": {f"p{int(p * 100)}": round(pct(adv, p)) for p in (0.5, 0.95, 0.99)} if adv else None,
         "mean_ms": round(statistics.mean(adv) * 1000) if adv else None,
         "errors": stats.errors,
@@ -134,6 +133,7 @@ def main() -> None:
     parser.add_argument("--seconds", type=float, default=30, help="how long each user plays after arriving")
     parser.add_argument("--ramp", type=float, default=5, help="users arrive spread over this many seconds")
     parser.add_argument("--speed", type=float, default=1, help="playback speed the fake users choose (1, 4, 10 ...)")
+    parser.add_argument("--tick", type=float, default=1.0, help="how often a page asks, in seconds (the page uses 1.0)")
     parser.add_argument("--server-pid", type=int, default=0)
     args = parser.parse_args()
     print(json.dumps(asyncio.run(run(args)), indent=2))

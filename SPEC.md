@@ -426,3 +426,9 @@ Measured how many people one server can serve before building login. Result and 
 `docs/LOADTEST.md`: about 50 comfortable users per process, the 4-live-day cap, the 250 ms polling cost, and
 memory per day. Next: accounts (username plus a word-and-number secret, hashed with scrypt, attempt limits,
 guest button), then the scale changes the load test points to. Tools: `tools/loadtest.py`, `tools/serve_for_loadtest.py`.
+
+## 23. Scale step 1: no tiny cap, idle days let go, one request a second (done)
+
+`MAX_WORLDS_KEPT` 4 -> 500 as a safety limit, least recently used goes first; a live day idle for 30 minutes is saved
+to history and let go (`IDLE_SECONDS`); the page asks the server once a second instead of four times a second.
+Measured in `docs/LOADTEST.md`: about 100 comfortable players per process at normal speed (was about 50).
