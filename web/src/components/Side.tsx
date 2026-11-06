@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { RunRequest } from "../lib/api";
+import { clock } from "../lib/format";
+import type { LogLine } from "../lib/narrate";
 import { useThrottled } from "../lib/useThrottled";
 import type { Status } from "../lib/useRun";
 
@@ -60,22 +62,53 @@ export function HowToRead() {
   );
 }
 
-export function JustHappened({ lines: live, slow = false }: { lines: string[]; slow?: boolean }) {
+/**
+ * Every line of the day so far, newest first, in a box of fixed size that scrolls. New lines arrive at the top; if you
+ * have scrolled down to read, your place is kept instead of jumping.
+ */
+export function JustHappened({
+  lines: live,
+  slow = false,
+  preOpenUs,
+  closeUs,
+}: {
+  lines: LogLine[];
+  slow?: boolean;
+  preOpenUs: number;
+  closeUs: number;
+}) {
   const lines = useThrottled(live, slow ? 1500 : 0); // at high speed the lines change faster than anyone can read
+  const box = useRef<HTMLOListElement>(null);
+  const height = useRef(0);
+  const [away, setAway] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    if (el.scrollTop > 0) el.scrollTop += el.scrollHeight - height.current; // keep the lines you are reading where they were
+    height.current = el.scrollHeight;
+  }, [lines[0]?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <section className="card grow" aria-labelledby="happened-title">
+    <section className="card grow happened-card" aria-labelledby="happened-title">
       <h2 id="happened-title">What just happened</h2>
-      {lines.length === 0 ? (
-        <p className="muted">Nothing yet.</p>
-      ) : (
-        <ol className="happened">
-          {lines.map((line, i) => (
-            <li key={`${i}-${line}`} className={i === 0 ? "newest" : ""}>
-              {line}
-            </li>
-          ))}
-        </ol>
-      )}
+      <div className="happened-wrap">
+        {lines.length === 0 ? (
+          <p className="muted">Nothing yet.</p>
+        ) : (
+          <ol className="happened" ref={box} tabIndex={0} aria-label="Everything that has happened today, newest first" onScroll={(e) => setAway(e.currentTarget.scrollTop > 60)}>
+            {lines.map((line, i) => (
+              <li key={line.id} className={i === 0 ? "newest" : ""}>
+                <span className="t">{clock(line.at, preOpenUs, closeUs)}</span>
+                {line.text}
+              </li>
+            ))}
+          </ol>
+        )}
+        {away && (
+          <button className="btn small-btn to-latest" onClick={() => box.current?.scrollTo({ top: 0, behavior: "smooth" })}>
+            Back to the latest
+          </button>
+        )}
+      </div>
     </section>
   );
 }

@@ -25,6 +25,7 @@ interface Props {
   onAuction: () => void;
   onBiggest: () => void;
   practice?: boolean; // a live practice day: no scrubbing back, no jump buttons
+  news?: { at: number; tone: string; headline: string }[]; // marked on the chart at the moment they came out
 }
 
 const HEIGHT = 390;
@@ -170,6 +171,14 @@ export function PriceChart(p: Props) {
           width={width}
           height={HEIGHT}
         >
+          {/* news: a dotted line and a flag at the moment each item came out */}
+          {(p.news ?? []).map((n, i) => (
+            <g key={i} className={`news-mark ${n.tone}`}>
+              <title>{n.headline}</title>
+              <line x1={x(n.at)} x2={x(n.at)} y1={TOP + 22} y2={VOLUME_BOTTOM} strokeDasharray="2 4" />
+              <path d={`M${x(n.at)} ${TOP + 4} l7 9 l-7 9 l-7 -9 z`} />
+            </g>
+          ))}
           {/* the part of the day before trading starts */}
           <rect x={left} y={TOP} width={x(p.preOpenUs) - left} height={VOLUME_BOTTOM - TOP} fill="var(--shade)" />
           {!narrow && (

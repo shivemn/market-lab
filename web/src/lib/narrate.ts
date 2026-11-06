@@ -1,7 +1,32 @@
 import { rupees } from "./format";
 import type { MarketEvent } from "./market";
 
-/** One plain-language sentence for the commands that finished just before `count` events. Newest first. */
+export interface LogLine {
+  id: number; // stable: the position of the command in the day, so a line keeps its identity as newer ones arrive
+  at: number; // microseconds into the day
+  text: string;
+}
+
+/** The plain-language sentence for each command that finished before `count` events. Newest first. */
+export function narrateLog(
+  events: readonly MarketEvent[],
+  ends: readonly number[],
+  count: number,
+  limit = 4,
+  me?: string,
+  symbol?: string,
+): LogLine[] {
+  const lines: LogLine[] = [];
+  let upper = ends.findIndex((end) => end > count);
+  if (upper === -1) upper = ends.length;
+  for (let i = upper - 1; i >= 0 && lines.length < limit; i--) {
+    const group = events.slice(i === 0 ? 0 : ends[i - 1], ends[i]);
+    if (group.length > 0) lines.push({ id: i, at: group[0].sim_time, text: sentence(group, me, symbol) });
+  }
+  return lines;
+}
+
+/** Just the sentences, newest first. */
 export function narrate(
   events: readonly MarketEvent[],
   ends: readonly number[],
@@ -10,14 +35,7 @@ export function narrate(
   me?: string,
   symbol?: string,
 ): string[] {
-  const lines: string[] = [];
-  let upper = ends.findIndex((end) => end > count);
-  if (upper === -1) upper = ends.length;
-  for (let i = upper - 1; i >= 0 && lines.length < limit; i--) {
-    const group = events.slice(i === 0 ? 0 : ends[i - 1], ends[i]);
-    if (group.length > 0) lines.push(sentence(group, me, symbol));
-  }
-  return lines;
+  return narrateLog(events, ends, count, limit, me, symbol).map((line) => line.text);
 }
 
 /** "MM2" is a market maker, "NT4" a casual trader, "VT1" a value trader. Anything else is just "A trader". */

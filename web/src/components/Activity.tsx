@@ -5,10 +5,11 @@ import type { MarketEvent } from "../lib/market";
 import { useThrottled } from "../lib/useThrottled";
 import { Help } from "./Help";
 
-export type ActivityTab = "activity" | "companies" | "index" | "statement" | "history";
+export type ActivityTab = "activity" | "companies" | "index" | "statement" | "history" | "news";
 
 const TABS: { key: ActivityTab; label: string }[] = [
   { key: "activity", label: "Activity" },
+  { key: "news", label: "News" },
   { key: "companies", label: "Your result by company" },
   { key: "index", label: "The index" },
   { key: "statement", label: "Statement and costs" },

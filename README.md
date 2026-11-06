@@ -84,10 +84,10 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 384 tests
+pytest                       # 414 tests
 ruff check .
 mypy
-cd web; npm test; cd ..      # 63 tests
+cd web; npm test; cd ..      # 64 tests
 ```
 
 ## How fast is it
@@ -125,6 +125,7 @@ flowchart LR
     subgraph world["Practice world, in memory"]
         sims["12 simulations<br/>one per company, one shared clock"]
         factors["Market and sector factors<br/>seeded random walks"]
+        news["News schedule<br/>5 items a day, from the seed"]
         gws["12 gateways<br/>reserve, then settle"]
     end
     subgraph disk["SQLite file: practice.db"]
@@ -134,6 +135,7 @@ flowchart LR
     ui --> clock --> api
     api --> world
     factors --> sims
+    news --> sims
     sims --> gws --> books
     api --> days
     api -- "new events and a snapshot" --> fold --> ui
@@ -147,6 +149,14 @@ runs the same fold as the server, which is how the page and the server can never
 `speed x 0.25` simulated seconds. The twelve companies move in 0.2-second steps on one clock, so a fill in any
 company can pause the whole day at the exact moment it happens (switchable). This also makes pause, speed and
 scrubbing free, and the same seed always gives the same day.
+
+**News and comparison rules.** `news.py` draws five made-up announcements for each day from the seed (one for the whole
+market, two for sectors, two for companies). An item adds a log-return to the companies it touches: 60% within five
+seconds and the rest over two minutes. It goes into the price the same way the shared market and sector moves do, so the
+exchange itself is unchanged and a replay from the seed still matches. The page only gets an item after its time, and how
+far it moved the price is withheld until the close, so the news cannot be used as a cheat sheet. `rules.py` computes
+shadow portfolios from the day's prices once the day is over (stay in cash, hold all twelve equally, follow a simple trend
+rule) so your result has something to be compared with. They never trade in the market and ignore charges.
 
 **An order's path.**
 
@@ -172,7 +182,7 @@ sequenceDiagram
 | Data | Where | Kept after a restart |
 | --- | --- | --- |
 | Cash, shares, taxes and charges | SQLite ledger, double-entry, entries cannot be edited or deleted | Yes |
-| Past days, your trades, closing prices | `days` table in the same file (migration 2) | Yes |
+| Past days, your trades, news, closing prices | `days` table in the same file (migration 2) | Yes |
 | The day in progress (event logs, open orders) | Server memory, rebuilt from the seed | No: a restart abandons the day |
 | What you see on screen | Folded in the browser from the events | Rebuilt from the server |
 
@@ -186,6 +196,7 @@ sequenceDiagram
 | One process, one lock, SQLite | Zero setup, easy to reason about | One writer at a time: fine for one learner, not for thousands |
 | Twelve independent exchanges plus shared factors | Index and per-company results behave like a real market | Twelve times the events (roughly 60,000 per day) |
 | History outside the append-only books | The books stay simple and provable | History is a convenience, not an audit record |
+| News as an extra return in the price process | No change to the exchange or the log format | The news is not an event in the log, so it is rebuilt from the seed and not read from the log |
 
 **What would change to scale it.** Each person's day is independent, so the natural step is one worker per day with the
 event log published to a stream. That is where a Kafka topic would fit; it is not built, and the current design does

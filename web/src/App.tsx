@@ -6,7 +6,7 @@ import { PriceChart } from "./components/PriceChart";
 import { PracticeView } from "./components/PracticeView";
 import { HowToRead, JustHappened, StartPanel } from "./components/Side";
 import { fold } from "./lib/market";
-import { narrate } from "./lib/narrate";
+import { narrateLog } from "./lib/narrate";
 import { biggestMove, endTimes, lastEndAtOrBefore, priceSeries, tradeSeries } from "./lib/series";
 import { COMPANIES } from "./lib/companies";
 import { useRun } from "./lib/useRun";
@@ -49,7 +49,13 @@ export default function App() {
   const trades = useMemo(() => tradeSeries(events), [version]);
   const series = useMemo(() => priceSeries(events, Math.max(duration / 300, 1)), [version, duration]);
   const biggest = useMemo(() => biggestMove(series, 10_000_000), [series]);
-  const lines = useMemo(() => narrate(events, ends, count, 4, undefined, summary?.instrument.symbol), [events, ends, count, version]);
+  // The queue and the list of events always show the live market, however far back the chart is dragged.
+  const liveCount = latest >= 0 ? ends[latest] : 0;
+  const liveState = useMemo(() => fold(events, liveCount), [version, liveCount]);
+  const lines = useMemo(
+    () => narrateLog(events, ends, liveCount, 300, undefined, summary?.instrument.symbol),
+    [events, ends, liveCount, version],
+  );
   const nowUs = position >= 0 ? times[position] ?? 0 : 0;
 
   const seek = (timeUs: number) => {
@@ -147,8 +153,8 @@ export default function App() {
         onBiggest={() => biggest && jumpTo(biggest.to.t)}
       />
       <main className="main">
-        <Queue state={state} followed={followed} onFollow={setFollowed} symbol={summary?.instrument.symbol} />
-        <JustHappened lines={lines} slow={run.status === "playing"} />
+        <Queue state={liveState} followed={followed} onFollow={setFollowed} symbol={summary?.instrument.symbol} />
+        <JustHappened lines={lines} slow={run.status === "playing"} preOpenUs={(summary?.config.pre_open_seconds ?? 60) * 1_000_000} closeUs={duration} />
       </main>
         </>
       )}

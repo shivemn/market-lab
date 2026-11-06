@@ -36,6 +36,8 @@ from marketlab.ledger import (
     locked_account,
     reserved_account,
 )
+from marketlab.news import NewsItem, affects, news_change, schedule
+from marketlab.rules import benchmarks as run_benchmarks
 from marketlab.sim import SimConfig, Simulation, replay_with_commands
 
 MICROS = 1_000_000
@@ -126,6 +128,9 @@ class World:
         self._sectors = {
             key: FactorPath(derive_seed(config.seed, f"sector:{key}"), SECTOR_SD, horizon) for key, _ in SECTORS
         }
+        self.news: list[NewsItem] = schedule(
+            config.seed, [(c.symbol, c.name, c.sector) for c in companies], self.open_at, self.close_at
+        )
         self.sims: dict[str, Simulation] = {
             c.symbol: Simulation(self.sim_config(c), self._common(c), STALE_FRACTION) for c in companies
         }
@@ -148,9 +153,13 @@ class World:
 
     def _common(self, company: Company) -> Callable[[int, int], float]:
         market, sector, beta = self._market, self._sectors[company.sector], company.beta
+        # a market-wide item moves each company by its beta; a sector or company item moves it by the full amount
+        mine = [
+            (n, beta if n.scope == "market" else 1.0) for n in self.news if affects(n, company.symbol, company.sector)
+        ]
 
         def shared(start: int, end: int) -> float:
-            return beta * market.change(start, end) + sector.change(start, end)
+            return beta * market.change(start, end) + sector.change(start, end) + news_change(mine, start, end)
 
         return shared
 
@@ -474,6 +483,53 @@ class PracticeWorld:
         """Each company's net result since this day began."""
         return {s: round(p.net_exact - self._baseline.get(s, Fraction(0))) for s, p in positions.items()}
 
+    def price_paths(self) -> dict[str, list[int]]:
+        """Each company's price at the open and at every simulated minute after it, from the trades."""
+        marks = [self.world.open_at + k * 60 * MICROS for k in range(0, self.config.open_seconds // 60 + 1)]
+        out: dict[str, list[int]] = {}
+        for symbol, sim in self.world.sims.items():
+            price = sim.instrument.reference_price
+            path: list[int] = []
+            trades = [e for e in sim.events if isinstance(e, Trade)]
+            i = 0
+            for mark in marks:
+                while i < len(trades) and trades[i].sim_time <= mark:
+                    price = trades[i].price
+                    i += 1
+                path.append(price)
+            out[symbol] = path
+        return out
+
+    def benchmarks_view(self) -> list[dict[str, object]]:
+        """The comparison rules, once the day is over (before that they would only be a peek at the answer)."""
+        if not self.world.finished:
+            return []
+        return [
+            {"key": b.key, "label": b.label, "bp": b.basis_points, "note": b.note}
+            for b in run_benchmarks(self.price_paths())
+        ]
+
+    def news_view(self) -> list[dict[str, object]]:
+        """The news that is out so far. Nothing is shown before its time. How far each item moved the price is kept
+        back until the day has finished, because knowing it in advance would turn the news into a cheat sheet."""
+        out: list[dict[str, object]] = []
+        for n in self.world.news:
+            if n.at > self.world.now:
+                break
+            show_size = self.world.finished
+            out.append(
+                {
+                    "id": n.id,
+                    "at": n.at,
+                    "scope": n.scope,
+                    "target": n.target,
+                    "headline": n.headline,
+                    "tone": n.tone,
+                    "impact_bp": n.impact_bp if show_size else None,
+                }
+            )
+        return out
+
     def fills(self) -> list[dict[str, object]]:
         """Every trade this person made today, in order: which company, bought or sold, how many, at what price."""
         out: list[dict[str, object]] = []
@@ -511,6 +567,8 @@ class PracticeWorld:
                 if kind in KINDS
             },
             "fills": self.fills(),
+            "news": self.news_view(),
+            "benchmarks": self.benchmarks_view(),
         }
 
     def worth(self) -> int:

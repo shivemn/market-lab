@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { rupees, signed } from "../lib/format";
+import { percentSigned, rupees, signed } from "../lib/format";
 import type { WorldDay } from "../lib/worldview";
 
 export interface PastDay {
@@ -13,6 +13,18 @@ export interface CompanyResult {
   today: number;
 }
 
+export interface Standing {
+  label: string;
+  percent: number; // the day's result in percent
+  note?: string;
+  you?: boolean;
+}
+
+export interface NewsMove {
+  headline: string;
+  bp: number | null;
+}
+
 interface Props {
   open: boolean;
   seed: number;
@@ -24,6 +36,9 @@ interface Props {
   versus: string; // "Behind Shifty 12 by 0.31%"
   detail: string; // "you +0.00% · index +0.31%"
   days: readonly PastDay[];
+  /** You, the index and the simple rules, best first. */
+  standings: readonly Standing[];
+  news: readonly NewsMove[];
   onClose: () => void;
   onStatement: () => void;
   onNextDay: () => void;
@@ -35,7 +50,7 @@ function headline(result: number): string {
 }
 
 /** Shown when the market closes: how the day went in money, and what happens next. */
-export function DaySummary({ open, seed, result, companies, held, versus, detail, days, onClose, onStatement, onNextDay }: Props) {
+export function DaySummary({ open, seed, result, companies, held, versus, detail, days, standings, news, onClose, onStatement, onNextDay }: Props) {
   const box = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = box.current;
@@ -71,6 +86,36 @@ export function DaySummary({ open, seed, result, companies, held, versus, detail
       <p className="callout">
         <b>{versus}.</b> {detail}.
       </p>
+      {standings.length > 0 && (
+        <div>
+          <h3 className="sub">You against the market and some simple rules</h3>
+          <ul className="orders standings">
+            {standings.map((r) => (
+              <li key={r.label} className={r.you ? "you" : ""}>
+                <span>
+                  {r.label}
+                  {r.note && <small className="muted"> {r.note}</small>}
+                </span>
+                <b className={r.percent > 0 ? "up" : r.percent < 0 ? "down" : ""}>{percentSigned(r.percent, 100)}</b>
+              </li>
+            ))}
+          </ul>
+          <p className="muted small">The rules are worked out from the day's prices and ignore charges, so they are a yardstick and not a promise.</p>
+        </div>
+      )}
+      {news.length > 0 && (
+        <div>
+          <h3 className="sub">The day's news and what it did</h3>
+          <ul className="orders">
+            {news.map((n, i) => (
+              <li key={i}>
+                <span>{n.headline}</span>
+                <b>{n.bp === null ? "" : percentSigned(n.bp, 10_000)}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {companies.length > 0 && (
         <div>
           <h3 className="sub">Company by company, today</h3>

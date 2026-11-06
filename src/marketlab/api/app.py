@@ -325,6 +325,8 @@ def world_json(world_id: str, pw: PracticeWorld) -> dict[str, Any]:
         "open_at": world.open_at,
         "close_at": world.close_at,
         "finished": world.finished,
+        "news": pw.news_view(),
+        "benchmarks": pw.benchmarks_view(),
         "portfolio": world_portfolio_json(pw.portfolio()),
         "prices": prices,
         "indices": pw.indices(prices),

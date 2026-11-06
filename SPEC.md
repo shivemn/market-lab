@@ -407,3 +407,9 @@ invariant from Week 9a; refusals do not change the day.
     serves it. The simulated day is shown on the real clock: the first simulated minute is the 9:00-9:15 pre-open and the
     next ten are 9:15-15:30 (`clock()` in `lib/format.ts`). The Practice screen is hidden, not unmounted, when you visit
     another tab, and the day pauses while you are away. Trade text names the company ("13 UDHAAR shares").
+20. **News, comparison rules and results over time:** `news.py` schedules five announcements per day from the seed and
+    adds them to each affected company's fair value as a log-return (60% within 5 s, the rest over 120 s). They are not
+    log events, so the replay path (`World._common`) must include them, and it does. The page sees an item only after its
+    time, and its size only after the close (a test checks both). `rules.py` gives three shadow portfolios (cash, hold
+    all twelve, a 3-look trend rule) from per-minute prices, shown only after the close. Past days keep their news and the
+    page draws worth over days and totals. The event list in Watch a day keeps every line and is a fixed-size box.

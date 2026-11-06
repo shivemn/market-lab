@@ -113,3 +113,17 @@ describe("naming the company", () => {
     );
   });
 });
+
+import { narrateLog } from "./narrate";
+
+describe("the event log", () => {
+  it("keeps a line's id as newer lines arrive, newest first", () => {
+    const ev = (seq: number) => ({ type: "SessionChanged", seq, sim_time: seq * 1000, session: "OPEN" }) as never;
+    const events = [ev(1), ev(2), ev(3)];
+    const before = narrateLog(events, [1, 2, 3], 2, 10);
+    const after = narrateLog(events, [1, 2, 3], 3, 10);
+    expect(before.map((l) => l.id)).toEqual([1, 0]);
+    expect(after.map((l) => l.id)).toEqual([2, 1, 0]);
+    expect(narrateLog(events, [1, 2, 3], 3, 2)).toHaveLength(2);
+  });
+});

@@ -18,6 +18,7 @@ export interface SavedDay {
   companies: { symbol: string; name: string; today: number }[];
   index: Record<string, { open: number; level: number; change: number }>;
   fills: SavedFill[];
+  news?: { at: number; scope: string; target: string; headline: string; tone: string; impact_bp: number | null }[];
 }
 
 /** Every day this account has played, newest first. The server keeps them in the database file. */

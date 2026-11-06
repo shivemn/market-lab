@@ -162,3 +162,22 @@ def test_history_and_closing_prices_survive_a_restart(tmp_path: Any) -> None:
 
 def test_history_rejects_a_bad_account_name(client: TestClient) -> None:
     assert client.get("/api/accounts/a%20b/days").status_code == 422
+
+
+def test_news_comes_out_during_the_day_and_is_kept_in_the_history(client: TestClient) -> None:
+    config = {"seed": 5, "open_seconds": 600, "pre_open_seconds": 5, "trading_date": "2026-11-01"}
+    world = client.post("/api/worlds", json=config).json()
+    assert world["news"] == []
+    wid = world["id"]
+    midway = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 300, "pause_on_fill": False}).json()["snapshot"]
+    assert 0 < len(midway["news"]) < 5
+    assert all(item["impact_bp"] is None for item in midway["news"])  # sizes stay secret while the day runs
+    last = {}
+    for _ in range(10):
+        last = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 100, "pause_on_fill": False}).json()
+        if last["finished"]:
+            break
+    assert len(last["snapshot"]["news"]) == 5
+    assert all(item["impact_bp"] is not None for item in last["snapshot"]["news"])
+    saved = client.get("/api/accounts/you/days").json()["days"][0]
+    assert len(saved["news"]) == 5

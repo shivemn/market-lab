@@ -67,11 +67,23 @@ export interface PositionView {
   today: number;
 }
 
+export interface NewsView {
+  id: number;
+  at: number; // microseconds into the day
+  scope: "market" | "sector" | "company";
+  target: string; // "" for the market, a sector key, or a company symbol
+  headline: string;
+  tone: "good" | "bad" | "unclear";
+  impact_bp: number | null; // how far it moved the price; only known once the day has finished
+}
+
 export interface WorldSnapshot {
   id: string;
   owner: string;
   config: { seed: number; open_seconds: number; pre_open_seconds: number };
   index_name: string;
+  news: NewsView[];
+  benchmarks: { key: string; label: string; bp: number; note: string }[]; // empty until the day is over
   sectors: { key: string; label: string }[];
   companies: WorldCompany[];
   now: number;

@@ -15,6 +15,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
 import { MarketBoard } from "./MarketBoard";
+import { NewsPanel, NewsTicker } from "./NewsPanel";
 import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
 import { PriceChart } from "./PriceChart";
@@ -238,7 +239,9 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
                 <input type="checkbox" checked={world.pauseOnFill} onChange={(e) => world.setPauseOnFill(e.target.checked)} />
                 Pause the day when one of my orders trades
               </label>
+              <NewsTicker snapshot={snapshot} />
               <PriceChart
+                news={snapshot.news}
                 symbol={company.name}
                 trades={trades}
                 state={state}
@@ -269,6 +272,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
                 tab={tab}
                 onTab={setTab}
                 panels={{
+                  news: <NewsPanel snapshot={snapshot} />,
                   companies: <CompaniesPanel snapshot={snapshot} />,
                   index: <IndexPanel snapshot={snapshot} kind={kind} onKind={setKind} />,
                   statement: <StatementPanel statement={statement} failed={failed} prices={snapshot.prices} />,
@@ -311,6 +315,12 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
               versus={versus.words}
               detail={`You ${sign(versus.you)}, the index ${sign(versus.index)}`}
               days={days}
+              standings={[
+                { label: "You", percent: day.youPercent, you: true },
+                { label: snapshot.index_name, percent: indexPercent(snapshot, kind) },
+                ...snapshot.benchmarks.map((b) => ({ label: b.label, percent: b.bp / 100, note: b.note })),
+              ].sort((a, b) => b.percent - a.percent)}
+              news={snapshot.news.map((n) => ({ headline: n.headline, bp: n.impact_bp }))}
               onClose={() => setDialogOpen(false)}
               onStatement={() => {
                 setTab("statement");

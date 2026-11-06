@@ -159,7 +159,7 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .chart-stats dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .caption { min-height: 3.2em; }
 @media (max-width: 600px) { .chart-stats { grid-template-columns: repeat(2, 1fr); } }
-.happened { min-height: 12em; overflow: hidden; }
+.happened { overflow-y: auto; overflow-x: hidden; }
 .happened li { overflow-wrap: anywhere; }
 .act-grid { min-height: 430px; align-content: start; }
 .preview { min-height: 4.7em; }
@@ -236,3 +236,46 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .coach-steps li { width: 18px; height: 4px; border-radius: 2px; background: var(--row-line); }
 .coach-steps li.done { background: var(--buy); }
 .coach-steps li.now { background: var(--ink); }
+
+/* the event list is a box of fixed size, so nothing around it can move when lines arrive */
+.happened-card { align-self: start; }
+.happened-wrap { position: relative; }
+.happened { height: 460px; padding-right: 8px; scrollbar-gutter: stable; }
+.happened li { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
+.happened li .t { display: inline-block; min-width: 3.4em; margin-right: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.happened-wrap .muted { height: 460px; margin: 0; }
+.to-latest { position: absolute; right: 18px; bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+
+/* news */
+.ticker { display: flex; gap: 12px; align-items: center; height: 40px; padding: 0 12px; margin: 0 0 8px; border: 1px solid var(--row-line); border-radius: 6px; overflow: hidden; white-space: nowrap; font-size: 14px; }
+.ticker > * { overflow: hidden; text-overflow: ellipsis; }
+.ticker-label { flex: none; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: var(--ink); color: var(--surface); }
+.ticker-item.good b, .newslist li.good .how { color: var(--up, #1a7f4b); }
+.ticker-item.bad b, .newslist li.bad .how { color: var(--down, #c0392b); }
+.ticker-item { animation: ticker-in 900ms ease-out; }
+@keyframes ticker-in { from { background: var(--shade); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ticker-item { animation: none; } }
+.ticker .tone { color: var(--muted); }
+.news-mark line { stroke: var(--muted); }
+.news-mark path { fill: var(--ink); }
+.news-mark.good path { fill: var(--buy); }
+.news-mark.bad path { fill: var(--sell, #c0392b); }
+.newslist ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
+.newslist li { display: grid; grid-template-columns: 3.4em 9em 1fr auto; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--row-line); font-size: 14px; }
+.newslist .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.newslist .who { font-weight: 600; }
+.newslist .how { color: var(--muted); white-space: nowrap; }
+@media (max-width: 700px) { .newslist li { grid-template-columns: 3.4em 1fr; } .newslist .how { grid-column: 2; } }
+.past-news { margin: 4px 0 8px; padding-left: 18px; }
+
+.daybox { max-height: 90vh; overflow-y: auto; }
+.standings li.you { font-weight: 700; }
+.standings small { display: block; font-weight: 400; }
+
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0; }
+.totals div { border-left: 3px solid var(--row-line); padding-left: 10px; }
+.totals dt { font-size: 12px; color: var(--muted); }
+.totals dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.totals small { display: block; }
+.worth-line { margin: 4px 0; }
+.worth-line svg { width: 100%; max-width: 640px; height: auto; display: block; }
