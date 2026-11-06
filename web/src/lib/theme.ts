@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 
 export const THEMES = [
-  { id: "desk", label: "Desk" },
-  { id: "terminal", label: "Terminal" },
-  { id: "notebook", label: "Notebook" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
 
 const KEY = "marketlab-theme";
 
+/** The saved choice, or else whatever the computer prefers. Old names from earlier versions map to the nearest look. */
 export function savedTheme(): ThemeId {
   try {
     const value = window.localStorage.getItem(KEY);
-    if (THEMES.some((t) => t.id === value)) return value as ThemeId;
+    if (value === "light" || value === "dark") return value;
+    if (value === "terminal") return "dark";
+    if (value !== null) return "light";
   } catch {
-    // storage can be blocked; the default look is fine
+    // storage can be blocked; follow the computer's setting
   }
-  return "desk";
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 export function applyTheme(theme: ThemeId): void {

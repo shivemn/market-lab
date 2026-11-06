@@ -170,14 +170,14 @@ def test_news_comes_out_during_the_day_and_is_kept_in_the_history(client: TestCl
     assert world["news"] == []
     wid = world["id"]
     midway = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 300, "pause_on_fill": False}).json()["snapshot"]
-    assert 0 < len(midway["news"]) < 5
+    assert 0 < len(midway["news"]) < 6
     assert all(item["impact_bp"] is None for item in midway["news"])  # sizes stay secret while the day runs
     last = {}
     for _ in range(10):
         last = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 100, "pause_on_fill": False}).json()
         if last["finished"]:
             break
-    assert len(last["snapshot"]["news"]) == 5
+    assert len(last["snapshot"]["news"]) == 8
     assert all(item["impact_bp"] is not None for item in last["snapshot"]["news"])
     saved = client.get("/api/accounts/you/days").json()["days"][0]
-    assert len(saved["news"]) == 5
+    assert len(saved["news"]) == 8

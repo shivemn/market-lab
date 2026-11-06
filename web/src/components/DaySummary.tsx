@@ -110,7 +110,7 @@ export function DaySummary({ open, seed, result, companies, held, versus, detail
             {news.map((n, i) => (
               <li key={i}>
                 <span>{n.headline}</span>
-                <b>{n.bp === null ? "" : percentSigned(n.bp, 10_000)}</b>
+                <b>{n.bp === null ? "" : n.bp === 0 ? "No effect" : percentSigned(n.bp, 10_000)}</b>
               </li>
             ))}
           </ul>

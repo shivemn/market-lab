@@ -84,7 +84,7 @@ The exchange handles other people's money in the long run, so it is tested harde
   plus a web job.
 
 ```
-pytest                       # 414 tests
+pytest                       # 418 tests
 ruff check .
 mypy
 cd web; npm test; cd ..      # 64 tests
@@ -150,13 +150,17 @@ runs the same fold as the server, which is how the page and the server can never
 company can pause the whole day at the exact moment it happens (switchable). This also makes pause, speed and
 scrubbing free, and the same seed always gives the same day.
 
-**News and comparison rules.** `news.py` draws five made-up announcements for each day from the seed (one for the whole
-market, two for sectors, two for companies). An item adds a log-return to the companies it touches: 60% within five
-seconds and the rest over two minutes. It goes into the price the same way the shared market and sector moves do, so the
-exchange itself is unchanged and a replay from the seed still matches. The page only gets an item after its time, and how
-far it moved the price is withheld until the close, so the news cannot be used as a cheat sheet. `rules.py` computes
-shadow portfolios from the day's prices once the day is over (stay in cash, hold all twelve equally, follow a simple trend
-rule) so your result has something to be compared with. They never trade in the market and ignore charges.
+**News and comparison rules.** `news.py` holds a box of about thirty made-up headlines, each marked *major* (usually
+matters) or *minor* (usually does not), with an obvious direction where there is one. Each day draws six at random and
+rolls dice from the seed: does this one move the price at all (75% of major ones, 15% of minor ones), and which way (a
+major one goes its obvious way four times in five; a minor one is a coin toss). Two more "silent shocks" move a random
+company with no headline. So there is no table of what moves what, and the unpredictability comes from the dice, not
+from rules a person could learn. A move that happens adds a log-return to the companies it touches (60% within five
+seconds, the rest over two minutes), the same way the shared market and sector moves enter, so the exchange is unchanged
+and a replay from the seed still matches. The page gets a headline only after its time, with no hint of whether it will
+matter; silent shocks and what each item did are shown after the close. `rules.py` computes shadow portfolios from the
+day's prices once the day is over (stay in cash, hold all twelve equally, follow a simple trend rule) so your result has
+something to be compared with. They never trade in the market and ignore charges.
 
 **An order's path.**
 
@@ -252,17 +256,17 @@ a fixed divisor. You can switch between by-company-size (Nifty, Sensex), every-c
 dearer-shares-count-more. The divisor logic is tested with a share split. Your result is shown company by company
 (locked in, on paper, charges, net) and against the index.
 
-![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-desk.png)
+![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-light.png)
 
 ## Phase 2: practice accounts
 
-![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-desk.png)
+![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-light.png)
 
-The page has three looks, chosen at the top right: Desk (light), Terminal (dark), and Notebook (graph paper). They share one layout.
+The page has a light and a dark look, chosen at the top right (the first visit follows your computer's setting).
 
 ![The statement: every trade, each charge line, and the result after charges](docs/img/statement-view.png)
 
-![The same screen in the Terminal look](docs/img/practice-terminal.png)
+![The same screen in the dark look](docs/img/practice-dark.png)
 
 Open the **Practice** tab, start a day and press play. You can place an order at any moment. The page tells you in
 plain words what it would do before you send it ("3 shares already waiting at that price would trade before yours"),

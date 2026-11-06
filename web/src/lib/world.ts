@@ -73,8 +73,8 @@ export interface NewsView {
   scope: "market" | "sector" | "company";
   target: string; // "" for the market, a sector key, or a company symbol
   headline: string;
-  tone: "good" | "bad" | "unclear";
-  impact_bp: number | null; // how far it moved the price; only known once the day has finished
+  silent: boolean; // a move with no headline; these only show up once the day is over
+  impact_bp: number | null; // how far it moved the price (0: not at all); only known once the day has finished
 }
 
 export interface WorldSnapshot {

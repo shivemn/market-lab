@@ -510,13 +510,16 @@ class PracticeWorld:
         ]
 
     def news_view(self) -> list[dict[str, object]]:
-        """The news that is out so far. Nothing is shown before its time. How far each item moved the price is kept
-        back until the day has finished, because knowing it in advance would turn the news into a cheat sheet."""
+        """The news that is out so far. Nothing is shown before its time, silent shocks (moves with no headline) stay
+        hidden until the day has finished, and so does what each item did to the price: knowing it in advance would
+        turn the news into a cheat sheet."""
         out: list[dict[str, object]] = []
+        done = self.world.finished
         for n in self.world.news:
             if n.at > self.world.now:
                 break
-            show_size = self.world.finished
+            if n.kind == "silent" and not done:
+                continue
             out.append(
                 {
                     "id": n.id,
@@ -524,8 +527,8 @@ class PracticeWorld:
                     "scope": n.scope,
                     "target": n.target,
                     "headline": n.headline,
-                    "tone": n.tone,
-                    "impact_bp": n.impact_bp if show_size else None,
+                    "silent": n.kind == "silent",
+                    "impact_bp": n.impact_bp if done else None,
                 }
             )
         return out

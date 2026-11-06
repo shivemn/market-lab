@@ -1,0 +1,93 @@
+/* The finished look: one layer over the layout, using only the tokens in theme.css. Loaded last. */
+
+.app { padding-top: 20px; }
+.card, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel { padding: 16px 18px; }
+.card { padding: 20px 24px; }
+
+/* header: one raised bar with the brand, the index and the session */
+.top { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 20px; }
+.brand-name { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+.brand-name::before { content: ""; width: 24px; height: 24px; border-radius: 8px; flex: none; background: conic-gradient(from 210deg, var(--buy), var(--you), var(--buy)); box-shadow: inset 0 0 0 5px var(--surface), 0 0 0 1px var(--line); }
+.quote .symbol { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.01em; }
+.quote .price { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; }
+.change { font-weight: 700; font-size: 15px; }
+.change.up { color: var(--up); }
+.change.down { color: var(--down); }
+.chip { border-radius: 999px; height: 30px; padding: 0 14px; font-size: 13px; font-weight: 700; background: var(--shade); color: var(--ink); gap: 8px; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.chip-open { background: var(--up-soft); color: var(--up); }
+.chip-open::before { background: var(--up); }
+.chip-pre_open { background: color-mix(in srgb, var(--you) 22%, transparent); color: var(--ink); }
+.chip-pre_open::before { background: var(--you); }
+.chip-closed::before { background: var(--down); }
+
+/* theme switch */
+.themes { border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); padding: 3px; gap: 2px; }
+.themes button { border: 0; border-radius: 999px; min-height: 28px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--muted); font-weight: 600; }
+.themes button + button { border-left: 0; }
+.themes button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+/* the three screens, as a segmented control */
+.tabs { display: inline-flex; align-self: flex-start; gap: 2px; padding: 4px; border-radius: 12px; background: var(--shade); }
+.tab { min-height: 38px; padding: 0 18px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 15px; font-weight: 700; }
+.tab:hover { color: var(--ink); }
+.tab.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); border: 0; }
+
+/* buttons and fields */
+.btn { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-weight: 700; }
+.btn:hover:not(:disabled) { border-color: var(--buy); color: var(--buy); }
+.btn.primary { background: linear-gradient(180deg, var(--buy), var(--buy-deep)); border-color: var(--buy-deep); color: var(--on-buy); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 6px 14px -8px var(--buy); }
+.btn.primary:hover:not(:disabled) { color: var(--on-buy); filter: brightness(1.07); }
+.btn.sellbtn { background: var(--sell); border-color: var(--sell); color: var(--on-sell); }
+.field input, .field select { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.field input:focus, .field select:focus { border-color: var(--buy); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--buy) 25%, transparent); }
+.seg { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 3px; gap: 3px; }
+.seg button { border: 0; border-radius: 8px; background: transparent; }
+.seg button + button { border-left: 0; }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.seg button.buy.on { background: var(--buy); color: var(--on-buy); }
+.seg button.sell.on { background: var(--sell); color: var(--on-sell); }
+.chip-btn { border-radius: 8px; background: var(--surface-2); }
+:focus-visible { outline: 2px solid var(--buy); outline-offset: 2px; }
+
+/* the account strip and the company board */
+.strip { border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.tile { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-sm); transition: border-color 120ms, box-shadow 120ms; }
+.tile:hover { border-color: var(--buy); }
+.tile[aria-pressed="true"] { border-color: var(--buy); box-shadow: 0 0 0 2px var(--buy), var(--shadow-sm); background: var(--buy-soft); }
+
+/* tabs inside a panel */
+.tabline { gap: 4px; border-bottom: 1px solid var(--line); }
+.tabline button { border: 0; background: transparent; color: var(--muted); font-weight: 700; border-radius: 8px 8px 0 0; }
+.tabline button:hover { color: var(--ink); }
+.tabline button.on { color: var(--buy); box-shadow: inset 0 -3px 0 var(--buy); }
+
+/* the day's notices */
+.coach, .notice, .ticker, .lesson { border-radius: 12px; }
+.coach { background: var(--surface); border: 1px solid var(--line); }
+.notice { background: var(--buy-soft); border: 1px solid color-mix(in srgb, var(--buy) 40%, transparent); }
+.ticker { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.ticker-label { background: var(--buy); color: var(--on-buy); border-radius: 6px; }
+.lesson { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--buy); }
+.callout { background: var(--surface-2); border: 1px solid var(--row-line); border-radius: 10px; }
+
+/* the end-of-day box */
+.daybox { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45); padding: 24px 28px; }
+.daybox::backdrop { background: rgba(8, 10, 28, 0.55); backdrop-filter: blur(3px); }
+.mini .total dd { font-size: 22px; font-weight: 800; }
+
+/* numbers that go up and down */
+.up { color: var(--up); }
+.down { color: var(--down); }
+table.tape th, table.statement th { color: var(--muted); font-weight: 600; }
+.past-day { border-radius: 12px; background: var(--surface-2); }
+.totals div { border-left-color: var(--buy); }
+
+/* quieter scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* the company picker on the lesson screens */
+.company-pick { align-self: flex-start; font-weight: 600; }
+.company-pick select { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); padding: 8px 12px; min-width: 320px; box-shadow: var(--shadow-sm); }
+.company-pick select:focus { border-color: var(--buy); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--buy) 25%, transparent); }

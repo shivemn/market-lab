@@ -124,8 +124,11 @@ export function HistoryPanel({ days, failed, preOpenUs, closeUs }: Props) {
               <ul className="small past-news">
                 {day.news.map((n, i) => (
                   <li key={i}>
-                    <span className="muted">{clock(n.at, preOpenUs, closeUs)}</span> {n.headline}
-                    {n.impact_bp !== null && <span className="muted"> ({percentSigned(n.impact_bp, 10_000)})</span>}
+                    <span className="muted">{clock(n.at, preOpenUs, closeUs)}</span>{" "}
+                    {n.headline === "" ? `No news: ${n.target} moved all the same` : n.headline}
+                    {n.impact_bp !== null && (
+                      <span className="muted"> ({n.impact_bp === 0 ? "no effect" : percentSigned(n.impact_bp, 10_000)})</span>
+                    )}
                   </li>
                 ))}
               </ul>

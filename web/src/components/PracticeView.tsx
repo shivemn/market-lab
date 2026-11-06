@@ -15,7 +15,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
 import { MarketBoard } from "./MarketBoard";
-import { NewsPanel, NewsTicker } from "./NewsPanel";
+import { headlineOf, NewsPanel, NewsTicker } from "./NewsPanel";
 import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
 import { PriceChart } from "./PriceChart";
@@ -320,7 +320,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
                 { label: snapshot.index_name, percent: indexPercent(snapshot, kind) },
                 ...snapshot.benchmarks.map((b) => ({ label: b.label, percent: b.bp / 100, note: b.note })),
               ].sort((a, b) => b.percent - a.percent)}
-              news={snapshot.news.map((n) => ({ headline: n.headline, bp: n.impact_bp }))}
+              news={snapshot.news.map((n) => ({ headline: headlineOf(n), bp: n.impact_bp }))}
               onClose={() => setDialogOpen(false)}
               onStatement={() => {
                 setTab("statement");

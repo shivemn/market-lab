@@ -250,16 +250,12 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .ticker { display: flex; gap: 12px; align-items: center; height: 40px; padding: 0 12px; margin: 0 0 8px; border: 1px solid var(--row-line); border-radius: 6px; overflow: hidden; white-space: nowrap; font-size: 14px; }
 .ticker > * { overflow: hidden; text-overflow: ellipsis; }
 .ticker-label { flex: none; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: var(--ink); color: var(--surface); }
-.ticker-item.good b, .newslist li.good .how { color: var(--up, #1a7f4b); }
-.ticker-item.bad b, .newslist li.bad .how { color: var(--down, #c0392b); }
 .ticker-item { animation: ticker-in 900ms ease-out; }
 @keyframes ticker-in { from { background: var(--shade); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .ticker-item { animation: none; } }
-.ticker .tone { color: var(--muted); }
 .news-mark line { stroke: var(--muted); }
 .news-mark path { fill: var(--ink); }
-.news-mark.good path { fill: var(--buy); }
-.news-mark.bad path { fill: var(--sell, #c0392b); }
+.news-mark.silent path { fill: none; stroke: var(--muted); }
 .newslist ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
 .newslist li { display: grid; grid-template-columns: 3.4em 9em 1fr auto; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--row-line); font-size: 14px; }
 .newslist .t { color: var(--muted); font-variant-numeric: tabular-nums; }

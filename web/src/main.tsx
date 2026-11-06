@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./theme.css";
 import "./desk.css";
+import "./look.css";
 import { applyTheme, savedTheme } from "./lib/theme";
 
 applyTheme(savedTheme());

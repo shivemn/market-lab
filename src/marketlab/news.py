@@ -1,17 +1,25 @@
-"""News: a few made-up announcements in each day that move prices.
+"""News: a box of made-up headlines, a few drawn each day, and prices that only sometimes react.
 
-Each day has a short schedule of news items, drawn from the day's seed so the same day always has the same news. An item
-has a time, a target (the whole market, one sector or one company), a headline and a size. When it comes out, the
-target's price takes most of its move quickly and the rest more slowly, the way real prices react: first the shock,
-then people catching up.
+Real news comes in three kinds, and this module mimics each:
 
-The news enters the price the same way the shared market and sector moves do (see `factors.py`): as an extra
-log-return added to each affected company's fair value. So nothing else about the exchange changes, and a replay from
-the seed still gives the same day exactly.
+1. News that usually matters (a war breaks out, interest rates rise). It *usually* moves prices, and usually the way you
+   would expect, but sometimes it does nothing and sometimes it goes the other way.
+2. News that usually does not matter (a robbery in some locality, a chief executive's interview). It rarely moves
+   prices, but now and then it does, in a direction nobody can tell in advance.
+3. No news at all. Prices still jump now and then for reasons nobody sees. Here a couple of "silent shocks" do that.
 
-What the person may see is limited on purpose. Before an item's time it is invisible. After it, the headline shows,
-with a tone (good, bad or unclear). How far it moved the price is only revealed once the day ends, so the news is
-something to judge and not a cheat sheet.
+There is no table of which headline moves which stock. Each headline in the box has a *class* (major or minor) and an
+optional lean (the obvious direction, if any). Each day draws about six headlines at random, and then rolls dice: does
+this one move the price (about 75% of the time for major, 15% for minor), and which way (major: with its lean four times
+in five; minor: a coin toss).
+
+The news enters the price the way the shared market and sector moves do (see `factors.py`): as an extra log-return added
+to each affected company's fair value. So the exchange is unchanged and a replay from the seed gives the same day. The
+dice are rolled when the day is built, from the seed.
+
+What the person may see is limited on purpose. Before an item's time it is invisible, and silent shocks stay invisible
+until the day is over. A headline shows with no hint of whether it will matter. What each one did is revealed at the
+close, so the news is something to judge and not a cheat sheet.
 """
 
 from __future__ import annotations
@@ -33,9 +41,9 @@ class NewsItem:
     at: int  # microseconds into the day
     scope: str  # "market", "sector" or "company"
     target: str  # "" for the market, a sector key, or a company symbol
-    headline: str
-    impact_bp: int  # the full move in basis points of price (signed), reached over about two minutes
-    tone: str  # "good", "bad" or "unclear": what the headline lets you tell about the direction
+    headline: str  # empty for a silent shock
+    impact_bp: int  # the full move in basis points of price (signed; 0 means it did not move the price)
+    kind: str  # "major", "minor" or "silent": kept for tests and the end-of-day review, never shown during the day
 
 
 def ramp(since: float) -> float:
@@ -58,29 +66,56 @@ def news_change(items: list[tuple[NewsItem, float]], start: int, end: int) -> fl
     return total
 
 
-# Headlines. {name} is the company or sector; the first line of each pair is for a rise and the second for a fall.
-_COMPANY_CLEAR = (
-    ("{name} wins a large order from the government", "{name} loses its biggest customer"),
-    ("{name} reports profits well above what was expected", "{name} reports a surprise loss for the quarter"),
-    ("{name} announces a record dividend", "{name} is raided by tax officials"),
-    ("{name} signs a deal to supply a foreign buyer", "{name} halts its main factory after an accident"),
+# The box. (scope, class, lean, headline). Lean is +1 or -1 when there is an obvious direction, 0 when there is none.
+# {name} is the company, or the sector described in words.
+BOX: tuple[tuple[str, str, int, str], ...] = (
+    # whole market, major
+    ("market", "major", -1, "The central bank raises interest rates"),
+    ("market", "major", 1, "The central bank cuts interest rates"),
+    ("market", "major", -1, "War breaks out between two big trading partners"),
+    ("market", "major", 1, "Foreign investors buy heavily in India"),
+    ("market", "major", -1, "Foreign investors pull money out of India"),
+    ("market", "major", 0, "Growth figures for the quarter are published"),
+    ("market", "major", -1, "Oil prices jump to a two-year high"),
+    # whole market, minor
+    ("market", "minor", 0, "The finance minister gives a speech at an industry event"),
+    ("market", "minor", 0, "A foreign rating agency publishes a routine report on India"),
+    ("market", "minor", 0, "Trading volumes were low on the exchange last week"),
+    ("market", "minor", 0, "A protest blocks roads in the capital for a day"),
+    # sectors, major
+    ("sector", "major", 1, "A good monsoon lifts hopes for {name}"),
+    ("sector", "major", -1, "A weak monsoon worries {name}"),
+    ("sector", "major", 1, "The government announces support for {name}"),
+    ("sector", "major", -1, "New rules make life harder for {name}"),
+    ("sector", "major", 0, "Export figures for {name} are released"),
+    # sectors, minor
+    ("sector", "minor", 0, "A trade body holds its annual meeting for {name}"),
+    ("sector", "minor", 0, "A survey asks people what they think of {name}"),
+    ("sector", "minor", 0, "A minister visits a factory that supplies {name}"),
+    # companies, major
+    ("company", "major", 1, "{name} wins a large order from the government"),
+    ("company", "major", -1, "{name} loses its biggest customer"),
+    ("company", "major", 1, "{name} reports profits well above what was expected"),
+    ("company", "major", -1, "{name} reports a surprise loss for the quarter"),
+    ("company", "major", -1, "Tax officials raid {name}"),
+    ("company", "major", 0, "{name} announces a merger"),
+    ("company", "major", 0, "{name} announces a change of chief executive"),
+    # companies, minor
+    ("company", "minor", 0, "A robbery is reported near a {name} warehouse"),
+    ("company", "minor", 0, "{name}'s chief executive gives a newspaper interview"),
+    ("company", "minor", 0, "{name} changes the design of its logo"),
+    ("company", "minor", 0, "{name} sponsors a local cricket tournament"),
+    ("company", "minor", 0, "A former employee of {name} writes a critical blog post"),
+    ("company", "minor", 0, "{name} opens a new office in another city"),
 )
-_COMPANY_UNCLEAR = (
-    "{name} announces a change at the top",
-    "{name} says it will restructure its business",
-    "{name} calls a surprise meeting with investors",
-    "{name} confirms talks about a merger",
-)
-_SECTOR_CLEAR = (
-    ("A good monsoon lifts hopes for {name}", "A weak monsoon worries {name}"),
-    ("The government announces support for {name}", "New rules make life harder for {name}"),
-    ("Export orders for {name} jump", "Export orders for {name} fall sharply"),
-)
-_MARKET_CLEAR = (
-    ("The central bank cuts interest rates", "The central bank raises interest rates"),
-    ("Foreign investors buy heavily in India", "Foreign investors pull money out of India"),
-    ("Growth figures beat forecasts", "Growth figures miss forecasts"),
-)
+
+HIT = {"major": 0.75, "minor": 0.15}  # the chance that a headline of each class moves the price at all
+FOLLOW_LEAN = 0.8  # when a major headline has an obvious direction, how often the price goes that way
+MIN_SESSION_US = 300 * MICROS  # shorter sessions than five minutes get no news
+HEADLINES = 6  # drawn from the box each day
+SILENT = 2  # moves with no headline at all
+SIZE = {"market": (50, 120), "sector": (80, 200), "company": (150, 400)}  # basis points, before a minor's discount
+MINOR_DISCOUNT = 0.6
 
 _SECTOR_NAMES = {
     "primary": "farm, fishing and mining companies",
@@ -96,47 +131,50 @@ def schedule(
     open_at: int,
     close_at: int,
 ) -> list[NewsItem]:
-    """About five items, spread over the trading session, always the same for the same seed."""
+    """Eight events spread over the session, always the same for the same seed: six headlines and two silent shocks."""
+    if close_at - open_at < MIN_SESSION_US:
+        return []  # a very short test day has no room for news
     rng = SimRng(derive_seed(seed, "news"))
-    span = close_at - open_at
-    count = 5
-    # one slot per item so two never land together; the last two minutes stay quiet so a move can finish
-    usable = span - 2 * 60 * MICROS
-    slot = usable // count
-    kinds = ["market", "sector", "sector", "company", "company"]
-    # shuffle with the day's own random numbers
-    for i in range(len(kinds) - 1, 0, -1):
+    total = HEADLINES + SILENT
+    usable = (close_at - open_at) - 2 * 60 * MICROS  # the last two minutes stay quiet so a move can finish
+    slot = usable // total
+    # draw the headlines from the box without repeats
+    pool = list(range(len(BOX)))
+    drawn: list[int | None] = []
+    for _ in range(HEADLINES):
+        drawn.append(pool.pop(rng.randint(0, len(pool) - 1)))
+    drawn += [None] * SILENT  # None stands for a silent shock
+    for i in range(len(drawn) - 1, 0, -1):  # shuffle, so the silent ones fall anywhere in the day
         j = rng.randint(0, i)
-        kinds[i], kinds[j] = kinds[j], kinds[i]
+        drawn[i], drawn[j] = drawn[j], drawn[i]
+    sectors = sorted({sector for _, _, sector in companies})
     items: list[NewsItem] = []
-    for index, scope in enumerate(kinds):
+    for index, choice in enumerate(drawn):
         at = open_at + 30 * MICROS + index * slot + rng.randint(0, max(1, slot - 40 * MICROS))
-        up = rng.chance(0.5)
-        unclear = scope == "company" and rng.chance(0.4)
+        if choice is None:
+            symbol = companies[rng.randint(0, len(companies) - 1)][0]
+            size = 100 + rng.randint(0, 200)
+            items.append(NewsItem(index, at, "company", symbol, "", size if rng.chance(0.5) else -size, "silent"))
+            continue
+        scope, kind, lean, template = BOX[choice]
         if scope == "company":
             symbol, name, _ = companies[rng.randint(0, len(companies) - 1)]
-            target = symbol
-            size = 150 + rng.randint(0, 250)
-            if unclear:
-                headline = _COMPANY_UNCLEAR[rng.randint(0, len(_COMPANY_UNCLEAR) - 1)].format(name=name)
-            else:
-                pair = _COMPANY_CLEAR[rng.randint(0, len(_COMPANY_CLEAR) - 1)]
-                headline = pair[0 if up else 1].format(name=name)
+            target, label = symbol, name
         elif scope == "sector":
-            keys = sorted({sector for _, _, sector in companies})
-            target = keys[rng.randint(0, len(keys) - 1)]
-            size = 80 + rng.randint(0, 120)
-            pair = _SECTOR_CLEAR[rng.randint(0, len(_SECTOR_CLEAR) - 1)]
-            headline = pair[0 if up else 1].format(name=_SECTOR_NAMES.get(target, target))
+            target = sectors[rng.randint(0, len(sectors) - 1)]
+            label = _SECTOR_NAMES.get(target, target)
         else:
-            target = ""
-            size = 50 + rng.randint(0, 70)
-            pair = _MARKET_CLEAR[rng.randint(0, len(_MARKET_CLEAR) - 1)]
-            headline = pair[0 if up else 1]
-        tone = "unclear" if unclear else ("good" if up else "bad")
-        items.append(NewsItem(index, at, scope, target, headline, size if up else -size, tone))
+            target, label = "", ""
+        low, high = SIZE[scope]
+        size = low + rng.randint(0, high - low)
+        if kind == "minor":
+            size = round(size * MINOR_DISCOUNT)
+        moves = rng.chance(HIT[kind])
+        up = rng.chance(FOLLOW_LEAN) == (lean > 0) if lean != 0 else rng.chance(0.5)
+        impact = (size if up else -size) if moves else 0
+        items.append(NewsItem(index, at, scope, target, template.format(name=label), impact, kind))
     items.sort(key=lambda item: item.at)
-    return [NewsItem(i, n.at, n.scope, n.target, n.headline, n.impact_bp, n.tone) for i, n in enumerate(items)]
+    return [NewsItem(i, n.at, n.scope, n.target, n.headline, n.impact_bp, n.kind) for i, n in enumerate(items)]
 
 
 def affects(item: NewsItem, symbol: str, sector: str) -> bool:

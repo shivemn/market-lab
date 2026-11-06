@@ -25,7 +25,7 @@ interface Props {
   onAuction: () => void;
   onBiggest: () => void;
   practice?: boolean; // a live practice day: no scrubbing back, no jump buttons
-  news?: { at: number; tone: string; headline: string }[]; // marked on the chart at the moment they came out
+  news?: { at: number; silent: boolean; headline: string }[]; // marked on the chart at the moment they came out
 }
 
 const HEIGHT = 390;
@@ -173,7 +173,7 @@ export function PriceChart(p: Props) {
         >
           {/* news: a dotted line and a flag at the moment each item came out */}
           {(p.news ?? []).map((n, i) => (
-            <g key={i} className={`news-mark ${n.tone}`}>
+            <g key={i} className={`news-mark${n.silent ? " silent" : ""}`}>
               <title>{n.headline}</title>
               <line x1={x(n.at)} x2={x(n.at)} y1={TOP + 22} y2={VOLUME_BOTTOM} strokeDasharray="2 4" />
               <path d={`M${x(n.at)} ${TOP + 4} l7 9 l-7 9 l-7 -9 z`} />
@@ -223,7 +223,21 @@ export function PriceChart(p: Props) {
 
           {/* the price line: solid up to the moment on screen, faint after it */}
           {future.length > 1 && <polyline fill="none" stroke="var(--line)" strokeWidth={2} points={toPoints(future)} />}
-          {past.length > 1 && <polyline fill="none" stroke="var(--ink)" strokeWidth={2.5} strokeLinejoin="round" points={toPoints(past)} />}
+          {past.length > 1 && (
+            <>
+              <defs>
+                <linearGradient id="price-area" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--price-line)" stopOpacity={0.22} />
+                  <stop offset="100%" stopColor="var(--price-line)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <polygon
+                fill="url(#price-area)"
+                points={`${x(past[0].t).toFixed(1)},${PRICE_BOTTOM} ${toPoints(past)} ${x(past[past.length - 1].t).toFixed(1)},${PRICE_BOTTOM}`}
+              />
+              <polyline fill="none" stroke="var(--price-line)" strokeWidth={2.25} strokeLinejoin="round" strokeLinecap="round" points={toPoints(past)} />
+            </>
+          )}
 
           {/* the biggest move */}
           {p.biggest && (

@@ -407,9 +407,15 @@ invariant from Week 9a; refusals do not change the day.
     serves it. The simulated day is shown on the real clock: the first simulated minute is the 9:00-9:15 pre-open and the
     next ten are 9:15-15:30 (`clock()` in `lib/format.ts`). The Practice screen is hidden, not unmounted, when you visit
     another tab, and the day pauses while you are away. Trade text names the company ("13 UDHAAR shares").
-20. **News, comparison rules and results over time:** `news.py` schedules five announcements per day from the seed and
-    adds them to each affected company's fair value as a log-return (60% within 5 s, the rest over 120 s). They are not
-    log events, so the replay path (`World._common`) must include them, and it does. The page sees an item only after its
-    time, and its size only after the close (a test checks both). `rules.py` gives three shadow portfolios (cash, hold
-    all twelve, a 3-look trend rule) from per-minute prices, shown only after the close. Past days keep their news and the
-    page draws worth over days and totals. The event list in Watch a day keeps every line and is a fixed-size box.
+20. **News, comparison rules and results over time:** `news.py` is a box of headlines with a class (major or minor) and an
+    optional lean. Each day draws six and rolls the dice from the seed: a major headline moves the price 75% of the time
+    (with its lean four times in five), a minor one 15% of the time (either way); two silent shocks move a company with
+    no headline. Tests check those rates over thousands of days. Moves enter as a log-return in `World._common` (60%
+    within 5 s, the rest over 120 s), so the replay includes them. Headlines show only after their time, silent shocks and
+    sizes only after the close. Sessions under five minutes get no news. `rules.py` gives three shadow portfolios (cash,
+    hold all twelve, a 3-look trend rule), shown after the close. Past days keep their news and the page draws worth over
+    days and totals. The event list in Watch a day keeps every line in a fixed-size box.
+21. **One look, light and dark:** the earlier three themes are gone. `theme.css` holds the tokens for light and dark (the
+    first visit follows the computer's setting), `look.css` is the single polish layer over the layout, and the price chart
+    has an area under its line. Order-book colours stay blue and orange for colour-blind readers; up and down are green and
+    red and always come with an arrow or a sign.
