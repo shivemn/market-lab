@@ -1,3 +1,5 @@
+import { announceSignedOut, authHeaders } from "./auth";
+
 export interface SavedFill {
   symbol: string;
   side: "BUY" | "SELL";
@@ -23,7 +25,8 @@ export interface SavedDay {
 
 /** Every day this account has played, newest first. The server keeps them in the database file. */
 export async function loadDays(owner: string): Promise<SavedDay[]> {
-  const response = await fetch(`/api/accounts/${encodeURIComponent(owner)}/days`);
+  const response = await fetch(`/api/accounts/${encodeURIComponent(owner)}/days`, { headers: authHeaders() });
+  if (response.status === 401) announceSignedOut();
   if (!response.ok) throw new Error("Could not load your saved days.");
   return ((await response.json()) as { days: SavedDay[] }).days;
 }

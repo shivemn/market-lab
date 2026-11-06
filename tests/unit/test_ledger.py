@@ -207,7 +207,7 @@ def test_a_database_file_keeps_its_data_and_is_not_set_up_twice(tmp_path: Path) 
     first.close()
     second = Ledger(path)
     assert second.cash("shi") == STARTING_CASH
-    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 3
     second.open_account("shi")
     assert second.cash("shi") == STARTING_CASH
     second.close()

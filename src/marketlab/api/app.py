@@ -52,10 +52,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from marketlab import accounts as auth
 from marketlab.codec import event_to_dict
 from marketlab.core import Instrument, Side, TimeInForce
 from marketlab.costs import PLANS
@@ -120,6 +121,12 @@ class WorldRequest(BaseModel):
     plan: Literal["zero", "flat20"] = "zero"
     trading_date: date | None = None
     fresh_prices: bool = Field(default=False, description="open at the starting prices, not yesterday's closes")
+
+
+class EnterRequest(BaseModel):
+    username: str = Field(max_length=64)
+    secret: str = Field(max_length=200)
+    create: bool = Field(default=False, description="yes, make a new account if this username is free")
 
 
 class WorldOrderRequest(OrderRequest):
@@ -393,7 +400,11 @@ class _Control:
                 self.speed = float(value)
 
 
-def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAPI:
+TOKEN_DAYS = 30
+TAKEN_OR_WRONG = "That username is taken, or the secret is wrong."
+
+
+def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, require_login: bool = False) -> FastAPI:
     app = FastAPI(title="Market Lab", version="0.9.0")
     store = RunStore()
     ledger = Ledger(db_path, shared_across_threads=True)
@@ -405,6 +416,39 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     lock = threading.Lock()  # one request at a time touches the ledger and the sessions
     touched: dict[str, float] = {}  # when each live day was last used (monotonic seconds)
     saved: set[int] = set()  # practice worlds (by object id) whose day is already in the history
+
+    # -- who is asking ---------------------------------------------------------------------------------------
+    by_name = auth.RateLimit(30, 15 * 60)  # wrong secrets per username, from anywhere
+    by_pair = auth.RateLimit(5, 15 * 60)  # wrong secrets per username from one address
+    by_address = auth.RateLimit(100, 15 * 60)  # wrong secrets from one address, any username
+    new_accounts = auth.RateLimit(30, 60 * 60)  # new accounts and guests per address
+
+    def identify(authorization: str | None) -> tuple[str, bool] | None:
+        scheme, _, token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            return None
+        with lock:
+            return ledger.login_user(auth.token_hash(token))
+
+    def owner_of(authorization: str | None = Header(default=None)) -> str | None:
+        """The signed-in name, or None when login is switched off. When it is on and nobody is signed in: 401."""
+        if not require_login:
+            return None
+        found = identify(authorization)
+        if found is None:
+            raise HTTPException(401, "Sign in to play.")
+        return found[0]
+
+    def legacy_only() -> None:
+        if require_login:
+            raise HTTPException(404, "The older single-company sessions are switched off when login is on.")
+
+    def issue(name: str) -> str:
+        token = auth.new_token()
+        with lock:
+            ledger.purge_logins()
+            ledger.add_login(auth.token_hash(token), name, days=TOKEN_DAYS)
+        return token
 
     def save_day(pw: PracticeWorld) -> None:
         """Put the day in the history once: when it ends, or when it is abandoned after some trading."""
@@ -424,9 +468,9 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             raise HTTPException(404, "unknown session: start one with POST /api/sessions (sessions are kept in memory)")
         return session
 
-    def find_world(world_id: str) -> PracticeWorld:
+    def find_world(world_id: str, owner: str | None = None) -> PracticeWorld:
         world = worlds.get(world_id)
-        if world is None:
+        if world is None or (owner is not None and world.owner != owner):  # someone else's day looks like no day
             raise HTTPException(404, "unknown world: start one with POST /api/worlds (worlds are kept in memory)")
         worlds.move_to_end(world_id)  # the order of `worlds` is "least recently used first"
         touched[world_id] = _now()
@@ -461,6 +505,87 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
         if run is None:
             raise HTTPException(404, "unknown run: start one with POST /api/runs (runs are kept in memory)")
         return run
+
+    @app.get("/api/config")
+    def config() -> dict[str, Any]:
+        return {"login_required": require_login}
+
+    def too_many(seconds: int) -> HTTPException:
+        minutes = max(1, -(-seconds // 60))
+        return HTTPException(
+            429,
+            f"Too many tries. Wait about {minutes} minute{'s' if minutes != 1 else ''} and try again.",
+            headers={"Retry-After": str(seconds)},
+        )
+
+    @app.post("/api/auth/enter")
+    def enter(body: EnterRequest, request: Request) -> dict[str, Any]:
+        """One form for both: an existing username needs its secret; a free one is created (after a confirmation)."""
+        username = body.username.strip()
+        problem = auth.check_username(username)
+        if problem:
+            raise HTTPException(422, problem)
+        who = username.lower()
+        address = request.client.host if request.client else "unknown"
+        pair = f"{who}|{address}"
+        wait = max(by_name.wait(who), by_pair.wait(pair), by_address.wait(address))
+        if wait:
+            raise too_many(wait)
+        with lock:
+            found = ledger.user(username)
+        if found is not None:
+            name, stored, _guest = found
+            if stored is None or not auth.verify_secret(body.secret, stored):  # guests have no secret: never enterable
+                for limiter, key in ((by_name, who), (by_pair, pair), (by_address, address)):
+                    limiter.hit(key)
+                raise HTTPException(401, TAKEN_OR_WRONG)
+            by_pair.clear(pair)
+            return {"status": "signed_in", "username": name, "guest": False, "token": issue(name)}
+        problem = auth.check_secret(body.secret, username)
+        if problem:
+            raise HTTPException(422, problem)
+        if not body.create:
+            return {"status": "confirm_new", "username": username}
+        wait = new_accounts.wait(address)
+        if wait:
+            raise too_many(wait)
+        hashed = auth.hash_secret(body.secret)  # slow on purpose, and done before taking the lock
+        with lock:
+            created = ledger.create_user(username, hashed)
+        if not created:  # someone took the name a moment ago
+            raise HTTPException(401, TAKEN_OR_WRONG)
+        new_accounts.hit(address)
+        return {"status": "created", "username": username, "guest": False, "token": issue(username)}
+
+    @app.post("/api/auth/guest")
+    def guest(request: Request) -> dict[str, Any]:
+        """A throwaway account with no secret, for a quick look. Its token is its only key."""
+        address = request.client.host if request.client else "unknown"
+        wait = new_accounts.wait(address)
+        if wait:
+            raise too_many(wait)
+        while True:
+            name = auth.new_guest_name()
+            with lock:
+                if ledger.create_user(name, None, guest=True):
+                    break
+        new_accounts.hit(address)
+        return {"status": "created", "username": name, "guest": True, "token": issue(name)}
+
+    @app.get("/api/auth/me")
+    def me(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        found = identify(authorization)
+        if found is None:
+            raise HTTPException(401, "Sign in to play.")
+        return {"username": found[0], "guest": found[1]}
+
+    @app.post("/api/auth/logout")
+    def logout(authorization: str | None = Header(default=None)) -> dict[str, bool]:
+        _, _, token = (authorization or "").partition(" ")
+        if token:
+            with lock:
+                ledger.end_login(auth.token_hash(token))
+        return {"ok": True}
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
@@ -502,7 +627,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
     def get_state(run_id: str, at: int = Query(..., ge=0), levels: int = Query(10, ge=1, le=100)) -> dict[str, Any]:
         return snapshot(find(run_id), at, levels)
 
-    @app.post("/api/sessions")
+    @app.post("/api/sessions", dependencies=[Depends(legacy_only)])
     def start_session(request: SessionRequest | None = None) -> dict[str, Any]:
         request = request or SessionRequest.model_validate({})
         config = SimConfig(
@@ -531,22 +656,22 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 "new_ends": ends_after(session, 0),
             }
 
-    @app.get("/api/sessions/{session_id}")
+    @app.get("/api/sessions/{session_id}", dependencies=[Depends(legacy_only)])
     def get_session(session_id: str) -> dict[str, Any]:
         with lock:
             return session_json(session_id, find_session(session_id))
 
-    @app.get("/api/sessions/{session_id}/market")
+    @app.get("/api/sessions/{session_id}/market", dependencies=[Depends(legacy_only)])
     def session_market(session_id: str, levels: int = Query(10, ge=1, le=100)) -> dict[str, Any]:
         with lock:
             return state_json(find_session(session_id).sim.state, levels)
 
-    @app.get("/api/sessions/{session_id}/statement")
+    @app.get("/api/sessions/{session_id}/statement", dependencies=[Depends(legacy_only)])
     def session_statement(session_id: str) -> dict[str, Any]:
         with lock:
             return statement_json(find_session(session_id))
 
-    @app.post("/api/sessions/{session_id}/advance")
+    @app.post("/api/sessions/{session_id}/advance", dependencies=[Depends(legacy_only)])
     def advance_session(session_id: str, request: AdvanceRequest) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
@@ -562,7 +687,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 "portfolio": portfolio_json(session.portfolio()),
             }
 
-    @app.post("/api/sessions/{session_id}/orders")
+    @app.post("/api/sessions/{session_id}/orders", dependencies=[Depends(legacy_only)])
     def place_order(session_id: str, request: OrderRequest) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
@@ -581,7 +706,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 "portfolio": portfolio_json(session.portfolio()),
             }
 
-    @app.delete("/api/sessions/{session_id}/orders/{order_id}")
+    @app.delete("/api/sessions/{session_id}/orders/{order_id}", dependencies=[Depends(legacy_only)])
     def cancel_order(session_id: str, order_id: int) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
@@ -597,7 +722,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
                 "portfolio": portfolio_json(session.portfolio()),
             }
 
-    @app.delete("/api/sessions/{session_id}")
+    @app.delete("/api/sessions/{session_id}", dependencies=[Depends(legacy_only)])
     def end_session(session_id: str) -> dict[str, Any]:
         with lock:
             session = find_session(session_id)
@@ -606,24 +731,23 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             return {"ended": True, "portfolio": portfolio_json(session.portfolio())}
 
     @app.post("/api/worlds")
-    def start_world(request: WorldRequest | None = None) -> dict[str, Any]:
+    def start_world(request: WorldRequest | None = None, who: str | None = Depends(owner_of)) -> dict[str, Any]:
         request = request or WorldRequest.model_validate({})
+        name = who or request.owner  # signed in: always your own account, whatever the request says
         config = WorldConfig(
             seed=request.seed, open_seconds=request.open_seconds, pre_open_seconds=request.pre_open_seconds
         )
         with lock:
-            for old_id in [i for i, other in worlds.items() if other.owner == request.owner]:
+            for old_id in [i for i, other in worlds.items() if other.owner == name]:
                 let_go(old_id)  # one day at a time per account
             try:
                 pw = PracticeWorld(
                     config,
                     ledger,
-                    request.owner,
+                    name,
                     plan=request.plan,
                     trading_date=request.trading_date,
-                    previous_close=None
-                    if request.fresh_prices
-                    else closes.get(request.owner) or ledger.last_closes(request.owner),
+                    previous_close=None if request.fresh_prices else closes.get(name) or ledger.last_closes(name),
                 )
             except ValueError as error:
                 raise HTTPException(422, str(error)) from error
@@ -638,22 +762,24 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             }
 
     @app.get("/api/accounts/{owner}/days")
-    def account_days(owner: str) -> dict[str, Any]:
+    def account_days(owner: str, who: str | None = Depends(owner_of)) -> dict[str, Any]:
         """Every practice day this account has played, newest first, with each trade. Kept in the database file."""
+        if who is not None and who.lower() != owner.lower():
+            raise HTTPException(403, "You can only see your own days.")
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", owner):
             raise HTTPException(422, "an account name is letters, numbers, - and _ only")
         with lock:
             return {"owner": owner, "days": ledger.days(owner)}
 
     @app.get("/api/worlds/{world_id}")
-    def get_world(world_id: str) -> dict[str, Any]:
+    def get_world(world_id: str, owner: str | None = Depends(owner_of)) -> dict[str, Any]:
         with lock:
-            return world_json(world_id, find_world(world_id))
+            return world_json(world_id, find_world(world_id, owner))
 
     @app.get("/api/worlds/{world_id}/statement")
-    def world_statement(world_id: str) -> dict[str, Any]:
+    def world_statement(world_id: str, owner: str | None = Depends(owner_of)) -> dict[str, Any]:
         with lock:
-            pw = find_world(world_id)
+            pw = find_world(world_id, owner)
             statement = pw.statement()
             prices = pw.world.prices()
             listed = [(s, q) for s, q in statement.holdings if s in prices]
@@ -686,9 +812,9 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             }
 
     @app.post("/api/worlds/{world_id}/advance")
-    def advance_world(world_id: str, request: AdvanceRequest) -> dict[str, Any]:
+    def advance_world(world_id: str, request: AdvanceRequest, owner: str | None = Depends(owner_of)) -> dict[str, Any]:
         with lock:
-            pw = find_world(world_id)
+            pw = find_world(world_id, owner)
             before = counts(pw)
             result = pw.advance(request.seconds, pause_on_fill=request.pause_on_fill)
             if result.finished:
@@ -703,9 +829,11 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             }
 
     @app.post("/api/worlds/{world_id}/orders")
-    def place_world_order(world_id: str, request: WorldOrderRequest) -> dict[str, Any]:
+    def place_world_order(
+        world_id: str, request: WorldOrderRequest, owner: str | None = Depends(owner_of)
+    ) -> dict[str, Any]:
         with lock:
-            pw = find_world(world_id)
+            pw = find_world(world_id, owner)
             before = counts(pw)
             try:
                 order_id, _ = pw.place(
@@ -716,9 +844,11 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             return {"order_id": order_id, **new_events(pw, before), "now": pw.now, "snapshot": world_json(world_id, pw)}
 
     @app.delete("/api/worlds/{world_id}/orders/{symbol}/{order_id}")
-    def cancel_world_order(world_id: str, symbol: str, order_id: int) -> dict[str, Any]:
+    def cancel_world_order(
+        world_id: str, symbol: str, order_id: int, owner: str | None = Depends(owner_of)
+    ) -> dict[str, Any]:
         with lock:
-            pw = find_world(world_id)
+            pw = find_world(world_id, owner)
             before = counts(pw)
             try:
                 pw.cancel(symbol, order_id)
@@ -727,9 +857,9 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:") -> FastAP
             return {**new_events(pw, before), "now": pw.now, "snapshot": world_json(world_id, pw)}
 
     @app.delete("/api/worlds/{world_id}")
-    def end_world(world_id: str) -> dict[str, Any]:
+    def end_world(world_id: str, owner: str | None = Depends(owner_of)) -> dict[str, Any]:
         with lock:
-            pw = find_world(world_id)
+            pw = find_world(world_id, owner)
             save_day(pw)
             pw.end_early()
             worlds.pop(world_id, None)

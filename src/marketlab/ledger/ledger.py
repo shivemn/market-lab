@@ -127,6 +127,46 @@ class Ledger:
         ).fetchone()
         return None if row is None else {k: int(v) for k, v in json.loads(row[0]).items()}
 
+    # -- who may use an account name -------------------------------------------------------------------------
+
+    def create_user(self, name: str, secret_hash: str | None, *, guest: bool = False) -> bool:
+        """Add a user. False if the name (in any capitals) is already taken."""
+        try:
+            self._conn.execute(
+                "INSERT INTO users (key, name, secret_hash, guest) VALUES (?, ?, ?, ?)",
+                (name.lower(), name, secret_hash, int(guest)),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return True
+
+    def user(self, name: str) -> tuple[str, str | None, bool] | None:
+        """(name as registered, secret hash, is a guest) for this name in any capitals, or None."""
+        row = self._conn.execute("SELECT name, secret_hash, guest FROM users WHERE key = ?", (name.lower(),)).fetchone()
+        return None if row is None else (str(row[0]), row[1], bool(row[2]))
+
+    def add_login(self, token_hash: str, name: str, *, days: int) -> None:
+        self._conn.execute(
+            "INSERT INTO logins (token_hash, user_key, expires_at) VALUES (?, ?, datetime('now', ?))",
+            (token_hash, name.lower(), f"+{int(days)} days"),
+        )
+
+    def login_user(self, token_hash: str) -> tuple[str, bool] | None:
+        """(name, is a guest) for a live token, or None if it is unknown or has expired."""
+        row = self._conn.execute(
+            "SELECT u.name, u.guest FROM logins l JOIN users u ON u.key = l.user_key"
+            " WHERE l.token_hash = ? AND l.expires_at > datetime('now')",
+            (token_hash,),
+        ).fetchone()
+        return None if row is None else (str(row[0]), bool(row[1]))
+
+    def end_login(self, token_hash: str) -> None:
+        self._conn.execute("DELETE FROM logins WHERE token_hash = ?", (token_hash,))
+
+    def purge_logins(self) -> None:
+        """Forget tokens that have expired."""
+        self._conn.execute("DELETE FROM logins WHERE expires_at <= datetime('now')")
+
     @contextmanager
     def batch(self) -> Iterator[None]:
         """Everything inside either happens or does not. Batches nest; a failure undoes only its own part."""

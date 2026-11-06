@@ -1,3 +1,4 @@
+import { announceSignedOut, authHeaders } from "./auth";
 import type { MarketEvent, Side } from "./market";
 
 export interface PracticeInstrument {
@@ -159,11 +160,15 @@ async function call<T>(method: string, url: string, body?: object): Promise<T> {
   try {
     response = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
     throw new Error('Could not reach the server. Is "marketlab serve" running?');
+  }
+  if (response.status === 401) {
+    announceSignedOut();
+    throw new Error("Please sign in again.");
   }
   if (response.status === 422) {
     const detail = ((await response.json()) as { detail?: unknown }).detail;

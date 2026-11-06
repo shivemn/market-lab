@@ -1,0 +1,29 @@
+/* The sign-in page and the little account chip in the header. Tokens come from theme.css. */
+
+.gate { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 32px 16px; background: var(--ground); background-image: radial-gradient(900px 420px at 50% -10%, var(--wash), transparent); color: var(--ink); font-family: var(--font-ui); }
+.gate-brand { text-align: center; max-width: 420px; }
+.gate-brand p { margin: 6px 0 0; }
+.gate-brand .brand-name { justify-content: center; }
+.gate-card { width: min(100%, 440px); padding: 26px 28px; gap: 16px; }
+.gate-card h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+.gate-form { display: flex; flex-direction: column; gap: 14px; }
+.gate-form .lead { font-size: 14px; }
+.gate-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.gate-actions .btn { flex: 1 1 140px; }
+.gate-form .field { gap: 6px; font-size: 14px; color: var(--ink); font-weight: 600; }
+.gate-form .field input { height: 44px; font-size: 16px; width: 100%; box-sizing: border-box; }
+.help { font-size: 12.5px; font-weight: 400; color: var(--muted); line-height: 1.45; }
+.secret-row { display: flex; gap: 8px; }
+.secret-row input { flex: 1; min-width: 0; }
+.secret-row .btn { min-height: 44px; }
+.gate-guest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 14px; }
+.gate-foot { max-width: 420px; text-align: center; margin: 0; }
+
+.account-chip { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.account-chip strong { color: var(--ink); }
+.link { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--buy); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link:hover { color: var(--buy-deep); }
+.link:focus-visible, .gate .btn:focus-visible { outline: 2px solid var(--buy); outline-offset: 2px; }
+.account-fixed { margin: 0; font-size: 15px; }
+
+.tabbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }

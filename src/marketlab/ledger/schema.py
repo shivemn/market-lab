@@ -72,4 +72,22 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX days_by_owner ON days (owner);
     """,
+    """
+    -- who may use an account name; not part of the books. A guest has no secret.
+    CREATE TABLE users (
+        key TEXT PRIMARY KEY,            -- the name in lower case, so 'Shi' and 'shi' are one person
+        name TEXT NOT NULL,              -- the name as first typed; this is also the account's name in the books
+        secret_hash TEXT,                -- scrypt hash, never the secret itself; NULL for a guest
+        guest INTEGER NOT NULL DEFAULT 0 CHECK (guest IN (0, 1)),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    -- a signed-in browser holds a token; only its hash is kept here
+    CREATE TABLE logins (
+        token_hash TEXT PRIMARY KEY,
+        user_key TEXT NOT NULL REFERENCES users (key),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        expires_at TEXT NOT NULL
+    );
+    CREATE INDEX logins_by_user ON logins (user_key);
+    """,
 ]

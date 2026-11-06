@@ -432,3 +432,15 @@ guest button), then the scale changes the load test points to. Tools: `tools/loa
 `MAX_WORLDS_KEPT` 4 -> 500 as a safety limit, least recently used goes first; a live day idle for 30 minutes is saved
 to history and let go (`IDLE_SECONDS`); the page asks the server once a second instead of four times a second.
 Measured in `docs/LOADTEST.md`: about 100 comfortable players per process at normal speed (was about 50).
+
+## 24. Scale step 2: accounts (done)
+
+Username (3-20 of letters, numbers, underscores, case-insensitive) plus a secret (a favourite word and a number,
+6+ characters, not digits alone, not common; hashed with scrypt, capitals and end spaces ignored), or a guest
+(`guest-xxxxxx`, no secret). One form for both; a free name asks for confirmation first; a failure always reads
+"That username is taken, or the secret is wrong."; 5 wrong tries per username and address (30 per username, 100 per
+address) lock for 15 minutes; 30 new accounts or guests per address per hour. Tokens are random, stored hashed,
+valid 30 days. With sign-in on, practice routes act on your own account only (another person's day is a 404, another
+person's history a 403) and the older `/api/sessions` routes are off. `marketlab serve --no-login` keeps the old
+single-person behaviour; `--behind-proxy` trusts X-Forwarded-For. Migration 3 adds `users` and `logins`.
+Not done on purpose: email, recovery, per-address limits shared across processes, guest clean-up.

@@ -9,6 +9,7 @@ import type { IndexKind, WorldRequest } from "../lib/world";
 import { compare, indexPercent, sign, worldDay } from "../lib/worldview";
 import { AccountStrip } from "./AccountStrip";
 import { Activity, ActivityTab } from "./Activity";
+import { useAccount } from "./AuthGate";
 import { CompaniesPanel } from "./CompaniesPanel";
 import { DaySummary, PastDay } from "./DaySummary";
 import { HistoryPanel } from "./HistoryPanel";
@@ -26,7 +27,9 @@ type Practice = ReturnType<typeof useWorld>;
 type PlanName = WorldRequest["plan"];
 
 function StartCard({ practice, again, refresh }: { practice: Practice; again?: boolean; refresh?: unknown }) {
-  const [owner, setOwner] = useState("you");
+  const account = useAccount();
+  const [typed, setOwner] = useState("you");
+  const owner = account.username ?? typed; // signed in: the account is your sign-in name, not a box to fill
   const saved = useDays(owner, refresh);
   const [seed, setSeed] = useState(7);
   const [plan, setPlan] = useState<PlanName>("zero");
@@ -39,10 +42,17 @@ function StartCard({ practice, again, refresh }: { practice: Practice; again?: b
           ? "Your cash and shares carry over. Orders still waiting are returned first."
           : "You start with ₹1,00,000 of pretend money. Twelve made-up companies trade together. Buy and sell, follow the Shifty 12 index, and see every tax and charge a real investor would pay. Nothing here is real or advice."}
       </p>
-      <label className="field">
-        Your name for the account (letters and numbers)
-        <input value={owner} onChange={(e) => setOwner(e.target.value)} aria-invalid={!valid} />
-      </label>
+      {account.username === null ? (
+        <label className="field">
+          Your name for the account (letters and numbers)
+          <input value={owner} onChange={(e) => setOwner(e.target.value)} aria-invalid={!valid} />
+        </label>
+      ) : (
+        <p className="account-fixed">
+          Playing as <strong>{account.username}</strong>
+          {account.guest ? " (guest)" : ""}
+        </p>
+      )}
       <label className="field">
         Day number
         <div className="inline">

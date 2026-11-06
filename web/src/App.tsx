@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AccountChip } from "./components/AccountChip";
 import { Header } from "./components/Header";
 import { Queue } from "./components/Queue";
 import { AuctionView } from "./components/AuctionView";
@@ -70,6 +71,7 @@ export default function App() {
   };
 
   const tabs = (
+    <div className="tabbar">
     <nav className="tabs" aria-label="Screens">
       <button className={`tab${view === "day" ? " on" : ""}`} aria-pressed={view === "day"} onClick={() => setView("day")}>
         Watch a day
@@ -81,6 +83,8 @@ export default function App() {
         Practice
       </button>
     </nav>
+    <AccountChip />
+    </div>
   );
 
   // The practice screen is only hidden, never closed, so a day in progress (and its history) is still there when you come back.

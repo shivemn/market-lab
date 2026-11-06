@@ -92,3 +92,11 @@ Same machine, same test (`--tick 1.0` is now the default because the page now as
   once a second at speed 1, ten simulated seconds at a time at speed 10). Trades still pause the day
   exactly when they happen.
 - Further gains need more than one process (step 3 of the plan): the next wall is one core.
+
+## What signing in costs
+
+A secret is checked with scrypt, which is slow on purpose: about 50 ms of CPU each. Measured on the same
+machine, 20 people signing in at the same moment all finished in 0.6 s, and 100 at once in 2.8 s (about
+35 sign-ins a second). That is fine, because someone signs in once per visit; a rush of hundreds in one second
+would wait a few seconds and slow other players a little while it lasts. The load test above does not sign in
+(it runs the server with sign-in off), so its numbers are for playing, not for signing in.

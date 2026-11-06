@@ -52,7 +52,11 @@ marketlab serve --db practice.db
 
 Then open http://127.0.0.1:8000. Press play, drag along the chart, or open the "Watch a day" and "Opening auction" lessons to see why the
 day opened at its price. In the Practice tab, start a day, press play, and buy a few shares with "Best price now".
-Your account is kept in `practice.db`, so it carries over to the next day; delete the file to start fresh. The server listens on your own computer only and has no login.
+The first page is a sign-in: pick a username and a secret (a favourite word and a number, like `purple42`), or press "Play as a guest".
+Your account, its money and its history are kept in `practice.db`, so they carry over to the next day; delete the file to start fresh.
+![The sign-in page](docs/img/sign-in.png)
+
+Running it alone and want no sign-in page? Use `marketlab serve --db practice.db --no-login`. The server listens on your own computer only.
 
 To put it online, see [docs/DEPLOY.md](docs/DEPLOY.md) (a `Dockerfile` and `render.yaml` are included). The built page `web/dist` is not in git, so a fresh clone must run `npm run build` first.
 
@@ -133,11 +137,13 @@ server, no outside calls.
 flowchart LR
     subgraph browser["Browser: React + TypeScript"]
         ui["Screens<br/>Practice, Watch a day, Opening auction"]
-        clock["The clock<br/>asks for time every 250 ms"]
+        gate["Sign-in page<br/>username + secret, or guest"]
+        clock["The clock<br/>asks for time every second"]
         fold["fold(events)<br/>chart, queue, ladder, P&L"]
     end
     subgraph server["Server: FastAPI, one lock"]
-        api["REST<br/>/api/worlds, /api/runs,<br/>/api/accounts/{owner}/days"]
+        authn["Auth<br/>/api/auth/enter, guest, me, logout<br/>scrypt hash, attempt limits"]
+        api["REST<br/>/api/worlds, /api/runs,<br/>/api/accounts/{owner}/days<br/>(your own account only)"]
     end
     subgraph world["Practice world, in memory"]
         sims["12 simulations<br/>one per company, one shared clock"]
@@ -148,7 +154,9 @@ flowchart LR
     subgraph disk["SQLite file: practice.db"]
         books["Ledger<br/>accounts, transactions, entries<br/>(append-only)"]
         days["days table<br/>history and closing prices"]
+        users["users and logins tables<br/>secret hashes, token hashes"]
     end
+    ui --> gate --> authn --> users
     ui --> clock --> api
     api --> world
     factors --> sims
@@ -162,8 +170,8 @@ flowchart LR
 The order book, the chart, the index and your profit and loss are all worked out by reading events in order. The browser
 runs the same fold as the server, which is how the page and the server can never disagree about the market.
 
-**The browser owns time.** The server has no clock. Every 250 ms the page asks it to move the day forward by
-`speed x 0.25` simulated seconds. The twelve companies move in 0.2-second steps on one clock, so a fill in any
+**The browser owns time.** The server has no clock. Once a second the page asks it to move the day forward by
+`speed` simulated seconds (it was four times a second until the load test showed that cost too much). The twelve companies move in 0.2-second steps on one clock, so a fill in any
 company can pause the whole day at the exact moment it happens (switchable). This also makes pause, speed and
 scrubbing free, and the same seed always gives the same day.
 
@@ -178,6 +186,18 @@ and a replay from the seed still matches. The page gets a headline only after it
 matter; silent shocks and what each item did are shown after the close. `rules.py` computes shadow portfolios from the
 day's prices once the day is over (stay in cash, hold all twelve equally, follow a simple trend rule) so your result has
 something to be compared with. They never trade in the market and ignore charges.
+
+**Accounts.** There is no email and no real name. A person picks a username (3 to 20 letters, numbers or underscores)
+and a *secret*, a favourite word and a number such as `purple42`. It is a password under a friendlier name and is treated
+like one: only a salted scrypt hash is stored, never the secret; capitals and spaces at the ends are ignored; at least six
+characters, not numbers alone, not a common one. One form does both jobs. A username that exists needs its secret, and
+any failure reads "That username is taken, or the secret is wrong." A free username first asks "Create it?", so a typo
+does not quietly make a new account. Five wrong tries for one username from one address (30 for the username from
+anywhere) lock it for 15 minutes. "Play as a guest" makes `guest-xxxxxx` with no secret; a hyphen is not allowed in a
+username, so a person can never take a guest name. A sign-in gives the browser a random token; the database keeps only
+its hash, and it expires after 30 days. When sign-in is on, every practice route uses *your* account whatever the
+request says, and another person's day looks like no day at all (404). `marketlab serve --no-login` switches all of this
+off for one person on their own computer.
 
 **An order's path.**
 
@@ -204,6 +224,7 @@ sequenceDiagram
 | --- | --- | --- |
 | Cash, shares, taxes and charges | SQLite ledger, double-entry, entries cannot be edited or deleted | Yes |
 | Past days, your trades, news, closing prices | `days` table in the same file (migration 2) | Yes |
+| Usernames, secret hashes, sign-in tokens (hashed) | `users` and `logins` tables in the same file (migration 3) | Yes |
 | The day in progress (event logs, open orders) | Server memory, rebuilt from the seed | No: a restart abandons the day |
 | What you see on screen | Folded in the browser from the events | Rebuilt from the server |
 
@@ -214,12 +235,13 @@ sequenceDiagram
 | Integer paise and shares everywhere, exact fractions for charges and the index | No rounding drift: your balance equals the sum of your entries | Some formulas need `Fraction` care |
 | Seeded simulation, event log with SHA-256 fingerprint | A bug or a result can be replayed exactly | Floating point is only stable on the same machine and Python |
 | Client-driven clock | Simple server, no streaming, easy pause and speed | The day only moves while a page is asking |
-| One process, one lock, SQLite | Zero setup, easy to reason about | One writer at a time: fine for one learner, not for thousands |
+| One process, one lock, SQLite | Zero setup, easy to reason about | One writer at a time: about 100 comfortable players per process (see the load test), not thousands |
 | Twelve independent exchanges plus shared factors | Index and per-company results behave like a real market | Twelve times the events (roughly 60,000 per day) |
+| Username plus a word-and-number secret, hashed with scrypt | No email, no extra service, nothing real to leak | Nobody can reset a forgotten secret; a guessable secret is guarded only by the attempt limits |
 | History outside the append-only books | The books stay simple and provable | History is a convenience, not an audit record |
 | News as an extra return in the price process | No change to the exchange or the log format | The news is not an event in the log, so it is rebuilt from the seed and not read from the log |
 
-**What would change to scale it.** Each person's day is independent, so the natural step is one worker per day with the
+**What would change to scale it.** Done so far, from the load test: no tiny cap on live days, idle days let go after 30 minutes, one request a second. Next: several server processes with each user always sent to the same one, and Postgres in place of SQLite. Each person's day is independent, so the natural step beyond that is one worker per day with the
 event log published to a stream. That is where a Kafka topic would fit; it is not built, and the current design does
 not need it. The ledger would move to Postgres with the same schema and the same two rules (every transaction sums to
 zero, entries never change).
@@ -247,7 +269,7 @@ See [docs/architecture.md](docs/architecture.md) for the single-company details 
   to work on it. It is for learning how a market works, not for forecasting.
 - A day in progress lives in server memory and is abandoned on restart. The ledger (cash and shares) and the saved
   history are in the database file and are not.
-- There is no login. Anyone who types an account name uses it, so a public copy is a shared demo.
+- Sign-in is deliberately light: no email, so a forgotten secret means a lost account; attempt limits are kept in memory per server process; guest accounts and their data are not cleaned up yet; the login token lives in the browser's local storage. Fine for a practice game of made-up money, not a pattern for a bank.
 - Delivery trades only, long only, instant settlement. Charge rates came from secondary sources and need checking
   against a real contract note before anyone relies on them.
 - The test fixture for the page is about 0.8 MB.

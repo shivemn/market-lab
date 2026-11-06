@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir ".[api]"
 COPY --from=web /web/dist web/dist
 ENV PORT=8000
 # the hosting service sets PORT; accounts live in /data (attach a disk there to keep them between restarts)
-CMD ["sh", "-c", "mkdir -p /data && marketlab serve --host 0.0.0.0 --port ${PORT} --db /data/practice.db --web web/dist"]
+CMD ["sh", "-c", "mkdir -p /data && marketlab serve --host 0.0.0.0 --port ${PORT} --db /data/practice.db --web web/dist --behind-proxy"]

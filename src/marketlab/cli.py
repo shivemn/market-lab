@@ -59,6 +59,12 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1", help="keep the default unless you know why you are changing it")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--db", default="practice.db", help="the practice accounts' database file (made if missing)")
+    serve.add_argument(
+        "--no-login", action="store_true", help="skip the sign-in page (one person on their own computer)"
+    )
+    serve.add_argument(
+        "--behind-proxy", action="store_true", help="trust X-Forwarded-For, when a host such as Render sits in front"
+    )
     serve.add_argument("--web", type=Path, default=Path("web/dist"), help="the built dashboard, if you have built it")
     serve.set_defaults(handler=_serve)
 
@@ -102,8 +108,16 @@ def _serve(args: argparse.Namespace) -> int:
         return 2
     web = args.web if args.web.is_dir() else None
     dashboard = "built" if web else "not built, use npm run dev"
-    print(f"Market Lab server on http://{args.host}:{args.port}  (dashboard: {dashboard})")
-    uvicorn.run(create_app(web, args.db), host=args.host, port=args.port, log_level="warning")
+    sign_in = "off" if args.no_login else "on"
+    print(f"Market Lab server on http://{args.host}:{args.port}  (dashboard: {dashboard}, sign-in: {sign_in})")
+    uvicorn.run(
+        create_app(web, args.db, require_login=not args.no_login),
+        host=args.host,
+        port=args.port,
+        log_level="warning",
+        proxy_headers=args.behind_proxy,
+        forwarded_allow_ips="*" if args.behind_proxy else None,
+    )
     return 0
 
 
