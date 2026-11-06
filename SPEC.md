@@ -419,3 +419,10 @@ invariant from Week 9a; refusals do not change the day.
     first visit follows the computer's setting), `look.css` is the single polish layer over the layout, and the price chart
     has an area under its line. Order-book colours stay blue and orange for colour-blind readers; up and down are green and
     red and always come with an arrow or a sign.
+
+## 22. Load test before accounts (done)
+
+Measured how many people one server can serve before building login. Result and the changes it implies are in
+`docs/LOADTEST.md`: about 50 comfortable users per process, the 4-live-day cap, the 250 ms polling cost, and
+memory per day. Next: accounts (username plus a word-and-number secret, hashed with scrypt, attempt limits,
+guest button), then the scale changes the load test points to. Tools: `tools/loadtest.py`, `tools/serve_for_loadtest.py`.

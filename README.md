@@ -120,6 +120,10 @@ The full write-up, with worked examples produced by the code, is in [docs/MATHS.
   broker and exchange fees, all exact fractions.
 - **Profit and loss:** average-cost method per company; the parts add up to the whole account exactly.
 
+## How many people can play at once?
+
+Measured, not guessed: one server process handles about 50 people comfortably (about 25 at fast playback), then slows sharply. The test, the numbers and what they change are in [docs/LOADTEST.md](docs/LOADTEST.md); the test itself is `tools/loadtest.py`.
+
 ## System design
 
 One Python process serves the web page and the API. Nothing else is needed to run it: no queue, no separate database
