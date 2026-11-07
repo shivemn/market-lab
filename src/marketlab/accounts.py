@@ -14,8 +14,8 @@ import hmac
 import re
 import secrets
 import time
-from collections import deque
 from collections.abc import Callable
+from typing import Protocol
 
 USERNAME = re.compile(r"[A-Za-z0-9_]{3,20}")
 SECRET_MIN, SECRET_MAX = 6, 64
@@ -93,8 +93,15 @@ def verify_secret(secret: str, stored: str) -> bool:
 # -- login tokens ----------------------------------------------------------------------------------------------
 
 
-def new_token() -> str:
-    return secrets.token_urlsafe(32)
+def new_token(name: str) -> str:
+    """A random token that starts with its owner's name: 'shivam.k3j...'. The name is public anyway, and it lets a
+    router in front of several servers send every request of one person to the same server without a lookup."""
+    return f"{name}.{secrets.token_urlsafe(32)}"
+
+
+def token_owner(token: str) -> str:
+    """The name at the front of a token, or '' if it has none."""
+    return token.partition(".")[0] if "." in token else ""
 
 
 def token_hash(token: str) -> str:
@@ -109,36 +116,65 @@ def new_guest_name() -> str:
 # -- slowing down guessing -------------------------------------------------------------------------------------
 
 
-class RateLimit:
-    """At most `limit` events per key in any `window` seconds. Kept in memory, so it is per server process."""
+class AttemptStore(Protocol):
+    """Where counted attempts are kept: in memory for one process, or in the database for several."""
 
-    def __init__(self, limit: int, window: float, clock: Callable[[], float] = time.monotonic) -> None:
-        self.limit = limit
-        self.window = window
-        self._clock = clock
-        self._hits: dict[str, deque[float]] = {}
+    def recent(self, key: str, since: float) -> list[float]: ...
+    def add(self, key: str, at: float) -> None: ...
+    def clear(self, key: str) -> None: ...
 
-    def _recent(self, key: str) -> deque[float]:
-        hits = self._hits.get(key)
-        if hits is None:
-            return deque()
-        cutoff = self._clock() - self.window
-        while hits and hits[0] <= cutoff:
-            hits.popleft()
-        if not hits:
-            del self._hits[key]
-        return hits
 
-    def wait(self, key: str) -> int:
-        """Seconds until this key may try again; 0 if it may try now."""
-        hits = self._recent(key)
-        if len(hits) < self.limit:
-            return 0
-        return max(1, int(hits[0] + self.window - self._clock()) + 1)
+class MemoryAttempts:
+    def __init__(self) -> None:
+        self._hits: dict[str, list[float]] = {}
 
-    def hit(self, key: str) -> None:
-        self._recent(key)
-        self._hits.setdefault(key, deque()).append(self._clock())
+    def recent(self, key: str, since: float) -> list[float]:
+        live = [t for t in self._hits.get(key, []) if t > since]
+        if live:
+            self._hits[key] = live
+        else:
+            self._hits.pop(key, None)
+        return live
+
+    def add(self, key: str, at: float) -> None:
+        self._hits.setdefault(key, []).append(at)
 
     def clear(self, key: str) -> None:
         self._hits.pop(key, None)
+
+
+class RateLimit:
+    """At most `limit` events per key in any `window` seconds.
+
+    Counted in memory by default, so it is per server process. Give it a database-backed `store` and every process
+    shares one count, which is what lets several servers run side by side. `namespace` keeps limits that share a store
+    from counting each other's events.
+    """
+
+    def __init__(
+        self,
+        limit: int,
+        window: float,
+        clock: Callable[[], float] = time.time,
+        store: AttemptStore | None = None,
+        namespace: str = "",
+    ) -> None:
+        self.limit = limit
+        self.window = window
+        self._clock = clock
+        self._store: AttemptStore = store or MemoryAttempts()
+        self._ns = namespace
+
+    def wait(self, key: str) -> int:
+        """Seconds until this key may try again; 0 if it may try now."""
+        now = self._clock()
+        hits = self._store.recent(f"{self._ns}:{key}", now - self.window)
+        if len(hits) < self.limit:
+            return 0
+        return max(1, int(hits[len(hits) - self.limit] + self.window - now) + 1)
+
+    def hit(self, key: str) -> None:
+        self._store.add(f"{self._ns}:{key}", self._clock())
+
+    def clear(self, key: str) -> None:
+        self._store.clear(f"{self._ns}:{key}")

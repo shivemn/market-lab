@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 from marketlab.core import CancelOrder, Event, Exchange, NewOrder, Order, Session, Side, TimeInForce
 from marketlab.costs import PLANS, CostModel, schedule_on
 from marketlab.ledger import Gateway, Ledger, OrderRefused, locked_account, post_trades, reserved_account
-from tests.helpers import DEMO, limit, market
+from tests.helpers import DEMO, examples, limit, market
 
 ME = "YOU"
 side = st.sampled_from([Side.BUY, Side.SELL])
@@ -40,7 +40,7 @@ def nonzero(ledger: Ledger, skip: tuple[str, ...] = ()) -> dict[str, int]:
     return {a: b for a, b in ledger.balances().items() if b != 0 and not a.startswith(skip)}
 
 
-@settings(max_examples=150, deadline=None)
+@settings(max_examples=examples(150), deadline=None)
 @given(steps=st.lists(step, max_size=40), plan=st.sampled_from(sorted(PLANS)))
 def test_live_gateway_and_rebuild_from_the_log_agree(steps: list[Any], plan: str) -> None:
     costs = CostModel(schedule_on(date(2026, 11, 1)), PLANS[plan])

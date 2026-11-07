@@ -17,6 +17,7 @@ from marketlab.core import Side, TimeInForce
 from marketlab.ledger import Ledger, OrderRefused, locked_account, post_trades, reserved_account
 from marketlab.session import PracticeSession, replay
 from marketlab.sim import SimConfig
+from tests.helpers import examples
 
 side = st.sampled_from([Side.BUY, Side.SELL])
 action = st.one_of(
@@ -37,7 +38,7 @@ def nonzero(ledger: Ledger) -> dict[str, int]:
     return {a: b for a, b in ledger.balances().items() if b != 0}
 
 
-@settings(max_examples=60, deadline=None)
+@settings(max_examples=examples(60), deadline=None)
 @given(
     seed=st.integers(min_value=0, max_value=40),
     actions=st.lists(action, max_size=25),

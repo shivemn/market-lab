@@ -139,6 +139,26 @@ class StoredRun:
     result: SimulationResult
 
 
+class LedgerAttempts:
+    """Attempt counts kept in the database, taking the server's lock around each use."""
+
+    def __init__(self, ledger: Ledger, lock: threading.Lock) -> None:
+        self._ledger = ledger
+        self._lock = lock
+
+    def recent(self, key: str, since: float) -> list[float]:
+        with self._lock:
+            return self._ledger.attempts_since(key, since)
+
+    def add(self, key: str, at: float) -> None:
+        with self._lock:
+            self._ledger.add_attempt(key, at)
+
+    def clear(self, key: str) -> None:
+        with self._lock:
+            self._ledger.clear_attempts(key)
+
+
 class RunStore:
     """The most recent runs, in memory. Old ones are dropped; they can always be recomputed from their settings."""
 
@@ -418,10 +438,11 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
     saved: set[int] = set()  # practice worlds (by object id) whose day is already in the history
 
     # -- who is asking ---------------------------------------------------------------------------------------
-    by_name = auth.RateLimit(30, 15 * 60)  # wrong secrets per username, from anywhere
-    by_pair = auth.RateLimit(5, 15 * 60)  # wrong secrets per username from one address
-    by_address = auth.RateLimit(100, 15 * 60)  # wrong secrets from one address, any username
-    new_accounts = auth.RateLimit(30, 60 * 60)  # new accounts and guests per address
+    attempts = LedgerAttempts(ledger, lock)  # counted in the database, so several server processes share one count
+    by_name = auth.RateLimit(30, 15 * 60, store=attempts, namespace="name")  # wrong secrets per username, anywhere
+    by_pair = auth.RateLimit(5, 15 * 60, store=attempts, namespace="pair")  # per username from one address
+    by_address = auth.RateLimit(100, 15 * 60, store=attempts, namespace="addr")  # from one address, any username
+    new_accounts = auth.RateLimit(30, 60 * 60, store=attempts, namespace="new")  # new accounts and guests per address
 
     def identify(authorization: str | None) -> tuple[str, bool] | None:
         scheme, _, token = (authorization or "").partition(" ")
@@ -444,7 +465,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
             raise HTTPException(404, "The older single-company sessions are switched off when login is on.")
 
     def issue(name: str) -> str:
-        token = auth.new_token()
+        token = auth.new_token(name)
         with lock:
             ledger.purge_logins()
             ledger.add_login(auth.token_hash(token), name, days=TOKEN_DAYS)

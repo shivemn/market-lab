@@ -84,8 +84,12 @@ The exchange handles other people's money in the long run, so it is tested harde
 - **Two languages, one answer.** The web page re-implements the market fold and the auction rules in TypeScript.
   Python writes a fixture, and the TypeScript tests must reproduce Python's answers, including the opening price on 40
   simulated mornings.
-- **Static checks.** `ruff` and `mypy --strict` on the code and tests, run in GitHub Actions on Python 3.11 to 3.13
-  plus a web job.
+- **Two databases, one test suite.** Every test that uses the ledger also runs against a real PostgreSQL server
+  (`MARKETLAB_TEST_PG=postgresql://...`; each in-memory ledger becomes a fresh schema). Extra tests cover what only
+  appears with several servers sharing one database: starting together, two servers spending the same money, and a
+  deadlock between workers that the test can provoke on demand (it fails if the fix is removed).
+- **Static checks.** `ruff` and `mypy --strict` on the code and tests, run in GitHub Actions on Python 3.11 to 3.13,
+  a PostgreSQL job and a web job.
 
 ```
 pytest                       # 418 tests
@@ -126,12 +130,13 @@ The full write-up, with worked examples produced by the code, is in [docs/MATHS.
 
 ## How many people can play at once?
 
-Measured, not guessed: one server process handles about 100 people comfortably at normal speed (about 25 at fast playback), then slows sharply. The test, the numbers and what they change are in [docs/LOADTEST.md](docs/LOADTEST.md); the test itself is `tools/loadtest.py`.
+Measured, not guessed: one server process handles about 100 people comfortably at normal speed (about 25 at fast playback), then slows sharply. With PostgreSQL and two workers the same machine held up noticeably better past that point (the honest limits of my 2-core test machine are in the document below). The test, the numbers and what they change are in [docs/LOADTEST.md](docs/LOADTEST.md); the test itself is `tools/loadtest.py`. To try several workers: `pip install -e ".[api,postgres]"`, then `marketlab cluster --workers 4 --db postgresql://user:password@host/database`.
 
 ## System design
 
-One Python process serves the web page and the API. Nothing else is needed to run it: no queue, no separate database
-server, no outside calls.
+By default one Python process serves the web page and the API, with a SQLite file for data: nothing else is needed to run
+it. For more people, the same server can run as several worker processes behind a small router, sharing one PostgreSQL
+database (`marketlab cluster`, described below). The code is the same either way.
 
 ```mermaid
 flowchart LR
@@ -141,23 +146,27 @@ flowchart LR
         clock["The clock<br/>asks for time every second"]
         fold["fold(events)<br/>chart, queue, ladder, P&L"]
     end
-    subgraph server["Server: FastAPI, one lock"]
+    subgraph router["Router: only with marketlab cluster"]
+        route["Sends each person to the same worker<br/>(by the name at the front of their token)<br/>relays the live WebSocket"]
+    end
+    subgraph server["Server: FastAPI, one lock per process"]
         authn["Auth<br/>/api/auth/enter, guest, me, logout<br/>scrypt hash, attempt limits"]
         api["REST<br/>/api/worlds, /api/runs,<br/>/api/accounts/{owner}/days<br/>(your own account only)"]
     end
     subgraph world["Practice world, in memory"]
         sims["12 simulations<br/>one per company, one shared clock"]
         factors["Market and sector factors<br/>seeded random walks"]
-        news["News schedule<br/>5 items a day, from the seed"]
+        news["News schedule<br/>8 items a day (6 headlines, 2 silent), from the seed"]
         gws["12 gateways<br/>reserve, then settle"]
     end
-    subgraph disk["SQLite file: practice.db"]
+    subgraph disk["SQLite file (default) or PostgreSQL (shared)"]
         books["Ledger<br/>accounts, transactions, entries<br/>(append-only)"]
         days["days table<br/>history and closing prices"]
-        users["users and logins tables<br/>secret hashes, token hashes"]
+        users["users, logins, attempts tables<br/>secret hashes, token hashes, rate limits"]
     end
     ui --> gate --> authn --> users
     ui --> clock --> api
+    clock -. "with several workers" .-> route -.-> api
     api --> world
     factors --> sims
     news --> sims
@@ -222,9 +231,9 @@ sequenceDiagram
 
 | Data | Where | Kept after a restart |
 | --- | --- | --- |
-| Cash, shares, taxes and charges | SQLite ledger, double-entry, entries cannot be edited or deleted | Yes |
+| Cash, shares, taxes and charges | The ledger (SQLite or PostgreSQL), double-entry, entries cannot be edited or deleted | Yes |
 | Past days, your trades, news, closing prices | `days` table in the same file (migration 2) | Yes |
-| Usernames, secret hashes, sign-in tokens (hashed) | `users` and `logins` tables in the same file (migration 3) | Yes |
+| Usernames, secret hashes, sign-in tokens (hashed), wrong-guess counts | `users`, `logins`, `attempts` tables in the same database (migrations 3 and 4) | Yes |
 | The day in progress (event logs, open orders) | Server memory, rebuilt from the seed | No: a restart abandons the day |
 | What you see on screen | Folded in the browser from the events | Rebuilt from the server |
 
@@ -238,10 +247,25 @@ sequenceDiagram
 | One process, one lock, SQLite | Zero setup, easy to reason about | One writer at a time: about 100 comfortable players per process (see the load test), not thousands |
 | Twelve independent exchanges plus shared factors | Index and per-company results behave like a real market | Twelve times the events (roughly 60,000 per day) |
 | Username plus a word-and-number secret, hashed with scrypt | No email, no extra service, nothing real to leak | Nobody can reset a forgotten secret; a guessable secret is guarded only by the attempt limits |
+| Sign-in limits counted in the database, not in memory | Several worker processes share one count | A few extra queries per sign-in attempt |
+| Same name always goes to the same worker (name is the front of the token) | A day lives in one worker's memory; routing needs no lookup | A dead worker loses the days it held; a person's load cannot be moved to a quieter worker |
+| SQLite by default, PostgreSQL by setting `--db postgresql://...` | Local use stays zero-setup; PostgreSQL gives shared access and survives hosting restarts | Two schema lists (`MIGRATIONS`, `MIGRATIONS_PG`) to keep in step; about 2 ms per ledger posting instead of well under 0.1 ms |
 | History outside the append-only books | The books stay simple and provable | History is a convenience, not an audit record |
 | News as an extra return in the price process | No change to the exchange or the log format | The news is not an event in the log, so it is rebuilt from the seed and not read from the log |
 
-**What would change to scale it.** Done so far, from the load test: no tiny cap on live days, idle days let go after 30 minutes, one request a second. Next: several server processes with each user always sent to the same one, and Postgres in place of SQLite. Each person's day is independent, so the natural step beyond that is one worker per day with the
+**Several processes.** `marketlab cluster --workers 4 --db postgresql://...` starts four server processes and a router in
+front of them. Money, accounts, history and sign-in limits live in PostgreSQL, so every worker sees the same truth. The
+one thing that does not is the day in progress, which lives in the memory of the worker that started it, so the router
+sends all of one person's requests to the same worker: it reads the person's name from the front of their sign-in token
+(`shivam.k3j...`) and always maps the same name to the same worker. Things that need care when processes share a
+database: the shared system accounts (market cash, charges) are updated by everyone, so the ledger always writes a
+transaction's entries in the same account order, which stops two workers from deadlocking on each other (a test
+reproduces the deadlock without it); two workers spending one person's money at once cannot both succeed (the database
+enforces the no-overdraft rule itself); and workers starting together migrate the database one at a time under a lock.
+If a worker dies the router starts it again and the days it held are lost, like any restart; if the router is stopped, the
+workers stop with it.
+
+**What would change to scale it further.** Done so far, from the load test: no tiny cap on live days, idle days let go after 30 minutes, one request a second, several workers on PostgreSQL. Each person's day is independent, so the natural step beyond that is one worker per day with the
 event log published to a stream. That is where a Kafka topic would fit; it is not built, and the current design does
 not need it. The ledger would move to Postgres with the same schema and the same two rules (every transaction sums to
 zero, entries never change).
@@ -269,6 +293,7 @@ See [docs/architecture.md](docs/architecture.md) for the single-company details 
   to work on it. It is for learning how a market works, not for forecasting.
 - A day in progress lives in server memory and is abandoned on restart. The ledger (cash and shares) and the saved
   history are in the database file and are not.
+- Several workers need PostgreSQL and a machine with spare cores; the router is a single Python process, so it is itself a ceiling (estimated at roughly 500 requests a second, not measured on big hardware). Days held by a worker are lost if it dies.
 - Sign-in is deliberately light: no email, so a forgotten secret means a lost account; attempt limits are kept in memory per server process; guest accounts and their data are not cleaned up yet; the login token lives in the browser's local storage. Fine for a practice game of made-up money, not a pattern for a bank.
 - Delivery trades only, long only, instant settlement. Charge rates came from secondary sources and need checking
   against a real contract note before anyone relies on them.

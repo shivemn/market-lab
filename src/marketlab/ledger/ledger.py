@@ -1,4 +1,4 @@
-"""A double-entry ledger on SQLite.
+"""A double-entry ledger on SQLite (or PostgreSQL).
 
 Every change is a transaction made of entries. An entry adds an amount (positive or negative) to one account.
 The entries of a transaction must add up to zero for each unit, so money (paise) and shares of each stock are
@@ -14,11 +14,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from marketlab.ledger.backend import PgConnection, is_postgres
 from marketlab.ledger.names import (
     CAPITAL,
     COST_LINES,
@@ -29,7 +32,7 @@ from marketlab.ledger.names import (
     cost_account,
     shares_account,
 )
-from marketlab.ledger.schema import MIGRATIONS
+from marketlab.ledger.schema import MIGRATIONS, MIGRATIONS_PG
 
 STARTING_CASH = 10_000_000  # 1,00,000 rupees, in paise
 
@@ -66,15 +69,34 @@ class Transaction:
     entries: tuple[Entry, ...]
 
 
+def _utc(plus_days: int = 0) -> str:
+    """A UTC time as text in the form both databases store: 'YYYY-MM-DD HH:MM:SS' (sorts the same as time does)."""
+    return (datetime.now(UTC) + timedelta(days=plus_days)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+_MIGRATION_LOCK = 727401  # PostgreSQL advisory lock, so several servers starting together migrate one at a time
+
+
 class Ledger:
+    """`path` is a SQLite file name, ":memory:", or a PostgreSQL address (postgresql://user:password@host/database)."""
+
     def __init__(self, path: str = ":memory:", *, shared_across_threads: bool = False) -> None:
         # A web server may use the ledger from several threads. Then the caller must take turns (hold a lock).
-        self._conn = sqlite3.connect(
-            path, isolation_level=None, check_same_thread=not shared_across_threads
-        )  # we begin and end transactions ourselves
-        self._conn.execute("PRAGMA foreign_keys = ON")
-        if path != ":memory:":
-            self._conn.execute("PRAGMA journal_mode = WAL")
+        self._conn: Any
+        self.postgres = is_postgres(path)
+        if self.postgres:
+            pg = PgConnection(path)
+            self._conn = pg
+            self._integrity = pg.integrity_errors
+        else:
+            self._conn = sqlite3.connect(
+                path, isolation_level=None, check_same_thread=not shared_across_threads
+            )  # we begin and end transactions ourselves
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            if path != ":memory:":
+                self._conn.execute("PRAGMA journal_mode = WAL")
+                self._conn.execute("PRAGMA busy_timeout = 5000")  # wait for another process's write, not fail
+            self._integrity = (sqlite3.IntegrityError,)
         self._depth = 0
         self._migrate()
         self.ensure_account(CAPITAL, INR, allows_negative=True)
@@ -85,14 +107,22 @@ class Ledger:
     # -- the database file ------------------------------------------------------------------------------------
 
     @property
-    def conn(self) -> sqlite3.Connection:
+    def conn(self) -> Any:
         """The raw connection. For tests that try to bypass the rules, and for reading."""
         return self._conn
+
+    @property
+    def integrity_errors(self) -> tuple[type[Exception], ...]:
+        """What this database raises when one of its own rules (no overdraft, append-only) is broken."""
+        return self._integrity
 
     def close(self) -> None:
         self._conn.close()
 
     def _migrate(self) -> None:
+        if self.postgres:
+            self._migrate_postgres()
+            return
         have = int(self._conn.execute("PRAGMA user_version").fetchone()[0])
         if have > len(MIGRATIONS):
             raise LedgerError(
@@ -101,17 +131,37 @@ class Ledger:
         for number in range(have, len(MIGRATIONS)):
             self._conn.executescript(f"BEGIN;\n{MIGRATIONS[number]}\nPRAGMA user_version = {number + 1};\nCOMMIT;")
 
+    def _migrate_postgres(self) -> None:
+        self._conn.execute("SELECT pg_advisory_lock(?)", (_MIGRATION_LOCK,))
+        try:
+            self._conn.script("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
+            row = self._conn.execute("SELECT version FROM schema_version").fetchone()
+            if row is None:
+                self._conn.execute("INSERT INTO schema_version (version) VALUES (0)")
+            have = 0 if row is None else int(row[0])
+            if have > len(MIGRATIONS_PG):
+                known = len(MIGRATIONS_PG)
+                raise LedgerError(
+                    f"this database was made by a newer version (schema {have}, this program knows {known})"
+                )
+            for number in range(have, len(MIGRATIONS_PG)):
+                self._conn.script(
+                    f"BEGIN;\n{MIGRATIONS_PG[number]}\nUPDATE schema_version SET version = {number + 1};\nCOMMIT;"
+                )
+        finally:
+            self._conn.execute("SELECT pg_advisory_unlock(?)", (_MIGRATION_LOCK,))
+
     # -- the history of days played --------------------------------------------------------------------------
 
     def record_day(
         self, owner: str, seed: int, *, finished: bool, closes: dict[str, int], summary: dict[str, Any]
     ) -> int:
         """Remember one practice day: what it was, how it ended and every trade the person made."""
-        cursor = self._conn.execute(
-            "INSERT INTO days (owner, seed, finished, closes, summary) VALUES (?, ?, ?, ?, ?)",
+        row = self._conn.execute(
+            "INSERT INTO days (owner, seed, finished, closes, summary) VALUES (?, ?, ?, ?, ?) RETURNING id",
             (owner, seed, int(finished), json.dumps(closes), json.dumps(summary)),
-        )
-        return int(cursor.lastrowid or 0)
+        ).fetchone()
+        return int(row[0])
 
     def days(self, owner: str) -> list[dict[str, Any]]:
         """The days this person has played, newest first."""
@@ -136,7 +186,7 @@ class Ledger:
                 "INSERT INTO users (key, name, secret_hash, guest) VALUES (?, ?, ?, ?)",
                 (name.lower(), name, secret_hash, int(guest)),
             )
-        except sqlite3.IntegrityError:
+        except self._integrity:
             return False
         return True
 
@@ -147,16 +197,16 @@ class Ledger:
 
     def add_login(self, token_hash: str, name: str, *, days: int) -> None:
         self._conn.execute(
-            "INSERT INTO logins (token_hash, user_key, expires_at) VALUES (?, ?, datetime('now', ?))",
-            (token_hash, name.lower(), f"+{int(days)} days"),
+            "INSERT INTO logins (token_hash, user_key, expires_at) VALUES (?, ?, ?)",
+            (token_hash, name.lower(), _utc(days)),
         )
 
     def login_user(self, token_hash: str) -> tuple[str, bool] | None:
         """(name, is a guest) for a live token, or None if it is unknown or has expired."""
         row = self._conn.execute(
             "SELECT u.name, u.guest FROM logins l JOIN users u ON u.key = l.user_key"
-            " WHERE l.token_hash = ? AND l.expires_at > datetime('now')",
-            (token_hash,),
+            " WHERE l.token_hash = ? AND l.expires_at > ?",
+            (token_hash, _utc()),
         ).fetchone()
         return None if row is None else (str(row[0]), bool(row[1]))
 
@@ -164,15 +214,31 @@ class Ledger:
         self._conn.execute("DELETE FROM logins WHERE token_hash = ?", (token_hash,))
 
     def purge_logins(self) -> None:
-        """Forget tokens that have expired."""
-        self._conn.execute("DELETE FROM logins WHERE expires_at <= datetime('now')")
+        """Forget tokens that have expired, and counted attempts older than a day."""
+        self._conn.execute("DELETE FROM logins WHERE expires_at <= ?", (_utc(),))
+        self._conn.execute("DELETE FROM attempts WHERE at < ?", (time.time() - 86_400,))
+
+    # -- counting attempts, for rate limits shared by every server process -----------------------------------
+
+    def attempts_since(self, key: str, since: float) -> list[float]:
+        rows = self._conn.execute(
+            "SELECT at FROM attempts WHERE key = ? AND at > ? ORDER BY at", (key, since)
+        ).fetchall()
+        return [float(r[0]) for r in rows]
+
+    def add_attempt(self, key: str, at: float) -> None:
+        self._conn.execute("INSERT INTO attempts (key, at) VALUES (?, ?)", (key, at))
+
+    def clear_attempts(self, key: str) -> None:
+        self._conn.execute("DELETE FROM attempts WHERE key = ?", (key,))
 
     @contextmanager
     def batch(self) -> Iterator[None]:
         """Everything inside either happens or does not. Batches nest; a failure undoes only its own part."""
         outer = self._depth == 0
         name = f"batch{self._depth}"
-        self._conn.execute("BEGIN IMMEDIATE" if outer else f"SAVEPOINT {name}")
+        begin = "BEGIN" if self.postgres else "BEGIN IMMEDIATE"  # SQLite: take the write lock now, not half way in
+        self._conn.execute(begin if outer else f"SAVEPOINT {name}")
         self._depth += 1
         try:
             yield
@@ -191,13 +257,13 @@ class Ledger:
 
     def ensure_account(self, account_id: str, unit: str, *, allows_negative: bool = False) -> None:
         """Create the account if it is new. Asking again with different settings is an error, not a change."""
+        # "do nothing if it exists" is what makes this safe when several servers start at the same moment
+        self._conn.execute(
+            "INSERT INTO accounts (id, unit, allows_negative) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
+            (account_id, unit, int(allows_negative)),
+        )
         row = self._conn.execute("SELECT unit, allows_negative FROM accounts WHERE id = ?", (account_id,)).fetchone()
-        if row is None:
-            self._conn.execute(
-                "INSERT INTO accounts (id, unit, allows_negative) VALUES (?, ?, ?)",
-                (account_id, unit, int(allows_negative)),
-            )
-        elif row[0] != unit or bool(row[1]) != allows_negative:
+        if row[0] != unit or bool(row[1]) != allows_negative:
             raise LedgerError(f"account {account_id} already exists with different settings")
 
     def grant_shares(self, owner: str, symbol: str, quantity: int) -> None:
@@ -281,18 +347,20 @@ class Ledger:
             ):
                 return None
             self._check_overdrafts(merged, units)
-            cursor = self._conn.execute(
-                "INSERT INTO transactions (at_us, memo, cause) VALUES (?, ?, ?)", (at, memo, cause)
+            transaction_id = int(
+                self._conn.execute(
+                    "INSERT INTO transactions (at_us, memo, cause) VALUES (?, ?, ?) RETURNING id", (at, memo, cause)
+                ).fetchone()[0]
             )
-            transaction_id = cursor.lastrowid
-            assert transaction_id is not None
-            for entry in merged:
+            # Several servers share one database and one set of system accounts (market cash, charges). If every
+            # transaction touches accounts in the same order, they wait for each other instead of deadlocking.
+            for entry in sorted(merged, key=lambda e: e.account) if self.postgres else merged:
                 try:
                     self._conn.execute(
                         "INSERT INTO entries (transaction_id, account_id, amount) VALUES (?, ?, ?)",
                         (transaction_id, entry.account, entry.amount),
                     )
-                except sqlite3.IntegrityError as error:  # the database's own guard, if ours somehow missed it
+                except self._integrity as error:  # the database's own guard, if ours somehow missed it
                     raise LedgerError(str(error)) from error
             return transaction_id
 

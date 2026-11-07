@@ -163,11 +163,10 @@ def test_inside_a_batch_one_failure_can_be_caught_without_losing_the_rest(ledger
 def test_the_database_itself_refuses_an_overdraft(ledger: Ledger) -> None:
     ledger.open_account("shi", starting_cash=50)
     ledger.conn.execute("BEGIN")
-    ledger.conn.execute("INSERT INTO transactions (at_us, memo) VALUES (0, 'raw')")
-    with pytest.raises(sqlite3.IntegrityError, match="overdraft"):
+    raw = ledger.conn.execute("INSERT INTO transactions (at_us, memo) VALUES (0, 'raw') RETURNING id").fetchone()[0]
+    with pytest.raises(ledger.integrity_errors, match="overdraft"):
         ledger.conn.execute(
-            "INSERT INTO entries (transaction_id, account_id, amount) VALUES (last_insert_rowid(), ?, -51)",
-            (cash_account("shi"),),
+            "INSERT INTO entries (transaction_id, account_id, amount) VALUES (?, ?, -51)", (raw, cash_account("shi"))
         )
     ledger.conn.execute("ROLLBACK")
     assert ledger.cash("shi") == 50
@@ -181,7 +180,7 @@ def test_entries_and_transactions_cannot_be_edited_or_deleted(ledger: Ledger) ->
         "UPDATE transactions SET memo = 'changed'",
         "DELETE FROM transactions",
     ):
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(ledger.integrity_errors, match="cannot be"):
             ledger.conn.execute(statement)
     assert ledger.verify() == []
 
@@ -200,6 +199,7 @@ def test_there_is_one_account_per_kind_of_charge(ledger: Ledger) -> None:
 # -- the file ----------------------------------------------------------------------------------------------------
 
 
+@pytest.mark.sqlite_only
 def test_a_database_file_keeps_its_data_and_is_not_set_up_twice(tmp_path: Path) -> None:
     path = str(tmp_path / "practice.db")
     first = Ledger(path)
@@ -207,12 +207,13 @@ def test_a_database_file_keeps_its_data_and_is_not_set_up_twice(tmp_path: Path) 
     first.close()
     second = Ledger(path)
     assert second.cash("shi") == STARTING_CASH
-    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert second.conn.execute("PRAGMA user_version").fetchone()[0] == 4
     second.open_account("shi")
     assert second.cash("shi") == STARTING_CASH
     second.close()
 
 
+@pytest.mark.sqlite_only
 def test_a_database_from_a_newer_version_is_refused(tmp_path: Path) -> None:
     path = str(tmp_path / "future.db")
     raw = sqlite3.connect(path)
@@ -231,6 +232,7 @@ def test_the_same_account_cannot_be_redefined(ledger: Ledger) -> None:
         ledger.ensure_account("user:a:cash", "DEMO1")
 
 
+@pytest.mark.sqlite_only
 def test_an_old_database_gets_the_history_table_when_opened(tmp_path: Path) -> None:
     import sqlite3
 

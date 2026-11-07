@@ -14,9 +14,10 @@ import pytest
 from marketlab.core import Trade
 from marketlab.ledger import MARKET_CASH, Ledger, cash_account, market_shares_account, post_trades, shares_account
 from marketlab.sim.runner import SimConfig, run_simulation
+from tests.helpers import examples
 
 
-@pytest.mark.parametrize("seed", range(1, 26))
+@pytest.mark.parametrize("seed", range(1, examples(25, minimum=2) + 1))
 def test_ledger_rebuilt_from_the_log_matches_a_direct_fold_of_the_trades(seed: int) -> None:
     result = run_simulation(SimConfig(seed=seed))
     trades = [e for e in result.events if isinstance(e, Trade)]

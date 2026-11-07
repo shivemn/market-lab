@@ -444,3 +444,17 @@ valid 30 days. With sign-in on, practice routes act on your own account only (an
 person's history a 403) and the older `/api/sessions` routes are off. `marketlab serve --no-login` keeps the old
 single-person behaviour; `--behind-proxy` trusts X-Forwarded-For. Migration 3 adds `users` and `logins`.
 Not done on purpose: email, recovery, per-address limits shared across processes, guest clean-up.
+
+## 25. Scale step 3: PostgreSQL and several workers (done)
+
+The ledger runs on SQLite (default) or PostgreSQL (`--db postgresql://...`, or `$DATABASE_URL`): one `Ledger` class
+over a two-method connection (`?` placeholders), a second migration list `MIGRATIONS_PG` with the three database-enforced
+rules rewritten as PostgreSQL triggers, migrations under an advisory lock, `INSERT ... ON CONFLICT DO NOTHING` for shared
+accounts, entries written in account order so workers cannot deadlock, `RETURNING id` instead of `lastrowid`, times as
+text computed in Python. Migration 4 adds `attempts`: sign-in limits are counted in the database so all workers share
+them. Tokens now start with the owner's name (`name.random`). `marketlab cluster` starts N workers (loopback only,
+`--behind-proxy`, told the real client address) and a router that maps the name at the front of the token to a worker
+(CRC32), remembers which worker made each run (run ids are content hashes), relays the live WebSocket, answers 502 if a
+worker is down, restarts dead workers, and stops them when it stops (including when it is killed: workers watch their
+parent). The suite runs on both databases (`MARKETLAB_TEST_PG`, `MARKETLAB_EXAMPLES_SCALE`), with CI jobs for both.
+Measured on a 2-core machine: see `docs/LOADTEST.md`, including what it could not show.

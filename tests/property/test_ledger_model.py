@@ -23,6 +23,7 @@ from marketlab.ledger import (
     market_shares_account,
     shares_account,
 )
+from tests.helpers import examples
 
 OWNERS = ["a", "b", "c"]
 owner = st.sampled_from(OWNERS)
@@ -61,7 +62,7 @@ def apply(model: dict[str, int], entries: list[Entry], floor: set[str]) -> bool:
     return True
 
 
-@settings(max_examples=200, deadline=None)
+@settings(max_examples=examples(200), deadline=None)
 @given(st.lists(operation, max_size=40))
 def test_ledger_agrees_with_a_dictionary_and_always_audits_clean(ops: list[Any]) -> None:
     ledger, model = setup()

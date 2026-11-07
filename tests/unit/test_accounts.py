@@ -48,9 +48,15 @@ def test_a_stored_secret_is_a_salted_hash_and_checks_out() -> None:
 
 
 def test_tokens_are_kept_only_as_hashes() -> None:
-    token = a.new_token()
+    token = a.new_token("shivam")
     assert a.token_hash(token) != token and len(a.token_hash(token)) == 64
-    assert a.new_token() != token
+    assert a.new_token("shivam") != token
+
+
+def test_a_token_starts_with_its_owners_name_so_a_router_can_use_it() -> None:
+    assert a.token_owner(a.new_token("shivam")) == "shivam"
+    assert a.token_owner(a.new_token("guest-ab12cd")) == "guest-ab12cd"
+    assert a.token_owner("no-dot-here") == ""
 
 
 def test_the_rate_limit_blocks_then_lets_go() -> None:

@@ -100,3 +100,52 @@ machine, 20 people signing in at the same moment all finished in 0.6 s, and 100 
 35 sign-ins a second). That is fine, because someone signs in once per visit; a rush of hundreds in one second
 would wait a few seconds and slow other players a little while it lasts. The load test above does not sign in
 (it runs the server with sign-in off), so its numbers are for playing, not for signing in.
+
+## Several workers on PostgreSQL (step 3)
+
+Setup: the same 2-core machine, but now **everything shares those two cores**: the fake users, the router, the
+workers and the PostgreSQL server. Speed 1, 30 seconds of play, users signed in directly in the database
+(`--db`), so the router can send each one to a fixed worker. Each row is one run, so expect noise of a factor
+of two in the slow cases.
+
+| Setup | Users | Served per second (wanted) | Median | Slowest 5% | Server CPU (100 = one core) |
+|---|---:|---:|---:|---:|---:|
+| One process, SQLite (step 1) | 100 | 92 (100) | 10 ms | 33 ms | 53% |
+| One process, PostgreSQL | 100 | 91 (100) | 122-137 ms | 531-909 ms | 73% |
+| Router + 1 worker | 100 | 91 (100) | 172 ms | 643 ms | 91% |
+| Router + 2 workers | 100 | 92 (100) | 18 ms | 50 ms | 88% |
+| Router + 4 workers | 100 | 92 (100) | 17 ms | 39 ms | 88% |
+| One process, PostgreSQL | 150 | 50 (150) | 1.4 s | 5.5 s | 48% |
+| Router + 2 workers | 150 | 79 (150) | 0.6 s | 4.3 s | 84% |
+| Router + 4 workers | 150 | 77 (150) | 0.8 s | 4.2 s | 83% |
+
+At 200 users every setup collapsed to 48-61 requests a second.
+
+What this says, and what it does not:
+
+1. **PostgreSQL costs more per request than SQLite.** A request cost about 8 ms of server CPU on PostgreSQL against
+   about 6 ms on SQLite, because each page snapshot reads the ledger through a network connection. A single ledger
+   posting (one fill) took about 2 ms against well under 0.1 ms on SQLite. Fills are rare compared with clock ticks, so
+   it shows up as the ~40% difference above, not as slow trading.
+2. **The router costs about 2 ms of CPU per request** and is one Python process, so it is itself a ceiling. Router plus
+   one worker is slower than a plain process: the router only pays off when it fronts several workers.
+3. **Two workers beat one process at 100 users** (median 137 ms to 18 ms, slowest 5% 909 ms to 50 ms), because one
+   process on PostgreSQL is already close to using its whole core at that load.
+4. **Four workers did no better than two, because this machine has two cores.** That is a limit of where I tested, not
+   of the design; I could not show more than two-fold scaling here.
+5. **Above about 150 users I cannot say where the server's own limit is.** The fake users share the cores and parse
+   every reply, so at 150-200 I was partly measuring the test client. The same caveat applies to the 200-user rows
+   earlier in this document. A real answer needs the server on a machine with at least 4 spare cores and the fake users
+   on another machine.
+6. **My rough estimate, not a measurement:** at about 8-10 ms of CPU per request and one request per second per player,
+   each worker core serves around 100-120 players, so N spare cores should serve roughly N x 100, until the single router
+   process (about 2 ms per request, so around 500 requests a second) becomes the limit. Worth checking on real hardware
+   before relying on it.
+
+Correctness under several workers is tested separately and does not depend on the machine: two servers starting
+together, two servers spending the same money at once (exactly one succeeds), and a deadlock between workers on the
+shared system accounts, which the test provokes on demand and which the ledger's fixed account order prevents
+(`tests/unit/test_ledger_postgres.py`, `tests/unit/test_cluster.py`).
+
+Reproduce: `python tools/loadtest.py --url http://127.0.0.1:8000 --db postgresql://... --users 100 --server-pid <pid>`
+against `marketlab serve` or `marketlab cluster` using the same database.

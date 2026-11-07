@@ -90,4 +90,111 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX logins_by_user ON logins (user_key);
     """,
+    """
+    -- wrong guesses and new accounts, counted in the database so every server process sees the same count
+    CREATE TABLE attempts (
+        key TEXT NOT NULL,
+        at REAL NOT NULL            -- seconds since 1970, from the clock of whichever server saw it
+    );
+    CREATE INDEX attempts_by_key ON attempts (key, at);
+    """,
+]
+
+
+# The same layout for PostgreSQL. SQLite and PostgreSQL write triggers differently, so this is a second list that says
+# the same things: the same tables, the same three database-enforced rules, the same order of migrations. All money and
+# share amounts are BIGINT, because a balance in paise passes 2 billion at about 2 crore rupees. Dates are text in
+# the same "YYYY-MM-DD HH:MM:SS" (UTC) form SQLite uses, so one set of Python code reads both.
+_NOW_PG = "to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')"
+
+MIGRATIONS_PG: list[str] = [
+    """
+    CREATE TABLE accounts (
+        id TEXT PRIMARY KEY,
+        unit TEXT NOT NULL,
+        allows_negative SMALLINT NOT NULL CHECK (allows_negative IN (0, 1)),
+        balance BIGINT NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE transactions (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        at_us BIGINT NOT NULL,
+        memo TEXT NOT NULL,
+        cause TEXT UNIQUE
+    );
+
+    CREATE TABLE entries (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        transaction_id BIGINT NOT NULL REFERENCES transactions (id),
+        account_id TEXT NOT NULL REFERENCES accounts (id),
+        amount BIGINT NOT NULL CHECK (amount <> 0)
+    );
+
+    CREATE INDEX entries_by_account ON entries (account_id);
+    CREATE INDEX entries_by_transaction ON entries (transaction_id);
+
+    -- ERRCODE 23514 (check violation) makes these arrive in Python as integrity errors, as they do in SQLite.
+    CREATE FUNCTION entries_update_balance() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        UPDATE accounts SET balance = balance + NEW.amount WHERE id = NEW.account_id;
+        RETURN NEW;
+    END $$;
+    CREATE TRIGGER entries_update_balance AFTER INSERT ON entries
+        FOR EACH ROW EXECUTE FUNCTION entries_update_balance();
+
+    CREATE FUNCTION accounts_no_overdraft() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        IF NEW.balance < 0 AND NEW.allows_negative = 0 THEN
+            RAISE EXCEPTION 'overdraft: this account cannot go below zero' USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END $$;
+    CREATE TRIGGER accounts_no_overdraft BEFORE UPDATE OF balance ON accounts
+        FOR EACH ROW EXECUTE FUNCTION accounts_no_overdraft();
+
+    CREATE FUNCTION ledger_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        RAISE EXCEPTION 'ledger % cannot be %', TG_TABLE_NAME,
+            CASE WHEN TG_OP = 'UPDATE' THEN 'changed' ELSE 'deleted' END USING ERRCODE = '23514';
+    END $$;
+    CREATE TRIGGER entries_append_only BEFORE UPDATE OR DELETE ON entries
+        FOR EACH ROW EXECUTE FUNCTION ledger_append_only();
+    CREATE TRIGGER transactions_append_only BEFORE UPDATE OR DELETE ON transactions
+        FOR EACH ROW EXECUTE FUNCTION ledger_append_only();
+    """,
+    f"""
+    CREATE TABLE days (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner TEXT NOT NULL,
+        seed BIGINT NOT NULL,
+        played_at TEXT NOT NULL DEFAULT ({_NOW_PG}),
+        finished SMALLINT NOT NULL CHECK (finished IN (0, 1)),
+        closes TEXT NOT NULL,
+        summary TEXT NOT NULL
+    );
+    CREATE INDEX days_by_owner ON days (owner);
+    """,
+    f"""
+    CREATE TABLE users (
+        key TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        secret_hash TEXT,
+        guest SMALLINT NOT NULL DEFAULT 0 CHECK (guest IN (0, 1)),
+        created_at TEXT NOT NULL DEFAULT ({_NOW_PG})
+    );
+    CREATE TABLE logins (
+        token_hash TEXT PRIMARY KEY,
+        user_key TEXT NOT NULL REFERENCES users (key),
+        created_at TEXT NOT NULL DEFAULT ({_NOW_PG}),
+        expires_at TEXT NOT NULL
+    );
+    CREATE INDEX logins_by_user ON logins (user_key);
+    """,
+    """
+    CREATE TABLE attempts (
+        key TEXT NOT NULL,
+        at DOUBLE PRECISION NOT NULL
+    );
+    CREATE INDEX attempts_by_key ON attempts (key, at);
+    """,
 ]

@@ -10,6 +10,7 @@ marketlab costs --side buy --quantity 100 --price 2500
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections import Counter
 from datetime import date
@@ -58,15 +59,32 @@ def _parser() -> argparse.ArgumentParser:
     serve = commands.add_parser("serve", help="start the web server (the live dashboard talks to it)")
     serve.add_argument("--host", default="127.0.0.1", help="keep the default unless you know why you are changing it")
     serve.add_argument("--port", type=int, default=8000)
-    serve.add_argument("--db", default="practice.db", help="the practice accounts' database file (made if missing)")
+    serve.add_argument(
+        "--db",
+        default=os.environ.get("DATABASE_URL", "practice.db"),
+        help="a database file (made if missing) or a postgresql:// address; default: $DATABASE_URL, else practice.db",
+    )
     serve.add_argument(
         "--no-login", action="store_true", help="skip the sign-in page (one person on their own computer)"
     )
     serve.add_argument(
         "--behind-proxy", action="store_true", help="trust X-Forwarded-For, when a host such as Render sits in front"
     )
+    serve.add_argument("--parent-pid", type=int, default=0, help=argparse.SUPPRESS)  # set by `cluster`
     serve.add_argument("--web", type=Path, default=Path("web/dist"), help="the built dashboard, if you have built it")
     serve.set_defaults(handler=_serve)
+
+    cluster = commands.add_parser(
+        "cluster", help="start several server processes behind one address (needs PostgreSQL)"
+    )
+    cluster.add_argument("--workers", type=int, default=max(2, os.cpu_count() or 2), help="how many server processes")
+    cluster.add_argument("--host", default="127.0.0.1")
+    cluster.add_argument("--port", type=int, default=8000, help="the public port; workers use the next ports up")
+    cluster.add_argument("--db", default=os.environ.get("DATABASE_URL", ""), help="a postgresql:// address")
+    cluster.add_argument("--no-login", action="store_true")
+    cluster.add_argument("--behind-proxy", action="store_true", help="trust X-Forwarded-For from a proxy in front")
+    cluster.add_argument("--web", type=Path, default=Path("web/dist"))
+    cluster.set_defaults(handler=_cluster)
 
     costs = commands.add_parser("costs", help="what a delivery trade would cost, line by line")
     costs.add_argument("--side", choices=["buy", "sell"], required=True)
@@ -107,6 +125,16 @@ def _serve(args: argparse.Namespace) -> int:
         print('error: the web server needs extra packages. Run:  pip install -e ".[api]"', file=sys.stderr)
         return 2
     web = args.web if args.web.is_dir() else None
+    if args.parent_pid and os.name == "posix":
+        import threading
+        import time
+
+        def stop_if_orphaned() -> None:  # the router that started this worker is gone: nobody is left to serve
+            while os.getppid() == args.parent_pid:
+                time.sleep(2)
+            os._exit(0)
+
+        threading.Thread(target=stop_if_orphaned, daemon=True).start()
     dashboard = "built" if web else "not built, use npm run dev"
     sign_in = "off" if args.no_login else "on"
     print(f"Market Lab server on http://{args.host}:{args.port}  (dashboard: {dashboard}, sign-in: {sign_in})")
@@ -117,6 +145,36 @@ def _serve(args: argparse.Namespace) -> int:
         log_level="warning",
         proxy_headers=args.behind_proxy,
         forwarded_allow_ips="*" if args.behind_proxy else None,
+    )
+    return 0
+
+
+def _cluster(args: argparse.Namespace) -> int:
+    from marketlab.ledger.backend import is_postgres
+
+    if not is_postgres(args.db):
+        print(
+            "error: several servers need PostgreSQL, because SQLite is one file for one program.\n"
+            "Give an address with --db postgresql://user:password@host/database (or set DATABASE_URL).",
+            file=sys.stderr,
+        )
+        return 2
+    if args.workers < 1:
+        print("error: --workers must be at least 1", file=sys.stderr)
+        return 2
+    try:
+        from marketlab.cluster import run_cluster
+    except ImportError:
+        print('error: the server needs extra packages. Run:  pip install -e ".[api,postgres]"', file=sys.stderr)
+        return 2
+    run_cluster(
+        workers=args.workers,
+        host=args.host,
+        port=args.port,
+        db=args.db,
+        web=args.web,
+        no_login=args.no_login,
+        behind_proxy=args.behind_proxy,
     )
     return 0
 

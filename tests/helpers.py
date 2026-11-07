@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import os
+
 from marketlab.core import Instrument, Order, OrderType, Side, TimeInForce
+
+
+def examples(n: int, minimum: int = 5) -> int:
+    """How many random cases a property test tries. MARKETLAB_EXAMPLES_SCALE=0.1 tries a tenth (slow databases)."""
+    return max(minimum, round(n * float(os.environ.get("MARKETLAB_EXAMPLES_SCALE", "1"))))
+
 
 # Reference price 2,500.00 rupees = 250000 paise. Tick 5 paise. Band 10 percent: 225000 to 275000.
 DEMO = Instrument(symbol="DEMO1", tick_size=5, lot_size=1, reference_price=250_000, band_pct=10)
