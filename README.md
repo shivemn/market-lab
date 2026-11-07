@@ -92,10 +92,10 @@ The exchange handles other people's money in the long run, so it is tested harde
   a PostgreSQL job and a web job.
 
 ```
-pytest                       # 418 tests
+pytest                       # 486 tests (5 skip without PostgreSQL)
 ruff check .
 mypy
-cd web; npm test; cd ..      # 64 tests
+cd web; npm test; cd ..      # 70 tests
 ```
 
 ## How fast is it
@@ -308,7 +308,7 @@ are in [SPEC.md](SPEC.md).
 
 ## Phase 3: a market of twelve companies
 
-![Twelve made-up companies in four sectors, the Shifty 12 index and how each company moved it](docs/img/market-index.png)
+![The Practice tab with the Shifty 12 chart under the company chart, and the index table showing how each company moved it](docs/img/market-index.png)
 
 The Practice tab now trades **twelve made-up companies**, three in each of the four sectors an economist names
 (primary, secondary, tertiary, quaternary), all on one clock with one seed. Their prices move together because each is

@@ -68,13 +68,19 @@ $$
 where $p_i$ is the price of company $i$, $q_i$ its weight, and $D$ the **divisor**. The divisor is chosen once so the
 index starts at its base value (1,000 here, the Sensex started at 100).
 
-The app shows three kinds. They differ only in what $q_i$ is:
+The app shows four. Three differ only in what $q_i$ is, and the fourth changes who is in the index:
 
 | Kind | $q_i$ | Effect |
 | --- | --- | --- |
 | Cap-weighted (Nifty, Sensex) | free-float shares | big companies move the index most |
 | Price-weighted (the Dow) | 1 | a share that costs more counts more, whatever the company's size |
 | Equal-weighted | $1 / (n \cdot p_i^{\text{base}})$ | every company counts the same |
+| Shifty 7 (Sensex-style) | free-float shares, for the 7 biggest companies only | the same as cap-weighted, over fewer members, starting at 100 |
+
+Shifty 7 mimics the Sensex, which holds the 30 biggest companies where the Nifty 50 holds 50. Thirty is 60% of fifty,
+and 60% of our twelve is about seven. The seven are the companies with the largest free-float market capitalisation at
+the base prices, and they are fixed. The real indices are reviewed twice a year, and the divisor absorbs each change so the
+level does not jump (see "the divisor does a second job" below). This simulator has no review date, so it does not hold one.
 
 **A worked example.** Two companies, A (100 free shares, base price ₹100) and B (300 free shares, base price ₹200). A rises
 10% to ₹110 and B stays at ₹200:
@@ -92,6 +98,12 @@ rise by ₹10 out of ₹300 in total.
 **The divisor does a second job.** If something changes that is not a price move (a share split, or a company leaving the
 index), the divisor is reset so the level stays exactly where it was. Otherwise the index would jump for no reason. This
 is what `after_split` and `rebalance` do.
+
+**Drawing the index through the day.** The level is a sum of price times a fixed number per company, so the page can
+draw it without asking the server at every trade. The server sends, once at the start of a day, the factor
+$q_i \cdot 100 / D$ for each company (hundredths of a point per paisa). The page keeps a running total: when company $i$
+trades at a new price, the level moves by that factor times the change in price. A test checks that this reproduces the
+server's exact level at the open and part-way through a day.
 
 **Each company's share of the move.** Company $i$ adds $q_i \Delta p_i / D$ to the index change, and these contributions
 add up to the total change exactly. The page shows them in "The index" tab.
