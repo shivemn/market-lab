@@ -308,7 +308,7 @@ are in [SPEC.md](SPEC.md).
 
 ## Phase 3: a market of twelve companies
 
-![The Practice tab with the Shifty 12 chart under the company chart, and the index table showing how each company moved it](docs/img/market-index.png)
+![The Practice tab with the index table showing how each company moved it](docs/img/market-index.png)
 
 ![The Indices tab: Shifty 12 and Shifty 7 side by side, a large chart, and what moved each](docs/img/indices-view.png)
 
@@ -319,7 +319,7 @@ previous day's closing prices.
 
 The **Shifty 12** index is worked out with the real formula: the sum of price times shares open to the public, divided by
 a fixed divisor. You can switch between by-company-size (Nifty, Sensex), every-company-the-same, and the Dow-style
-dearer-shares-count-more, and a fourth, **Shifty 7**, which mimics the Sensex: the same formula over only the seven biggest companies, starting at 100 (the Sensex holds the 30 biggest, Nifty 50 holds 50; the seven are fixed here, while the real ones are reviewed twice a year). The Practice tab draws the chosen index through the day under the company chart, and a separate **Indices** tab is only about the two (Shifty 12 and Shifty 7): a large chart, the high and low so far, what each company added, the four sectors, and the news. The divisor logic is tested with a share split. Your result is shown company by company
+dearer-shares-count-more, and a fourth, **Shifty 7**, which mimics the Sensex: the same formula over only the seven biggest companies, starting at 100 (the Sensex holds the 30 biggest, Nifty 50 holds 50; the seven are fixed here, while the real ones are reviewed twice a year). The Practice tab keeps the index in the header and your result against it, and a separate **Indices** tab is only about the two (Shifty 12 and Shifty 7): a large chart through the day, the high and low so far, what each company added, the four sectors, and the news. The divisor logic is tested with a share split. Your result is shown company by company
 (locked in, on paper, charges, net) and against the index.
 
 ![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-light.png)
