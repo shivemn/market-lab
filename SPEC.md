@@ -490,3 +490,6 @@ ledger) and `Ledger.owner_balances(owner)` (all of an owner's balances in one qu
 statement's stored balance use it) took a tick from 31 calls to 4 and an order from 40 to 13. Replies are gzip-compressed
 (`GZipMiddleware`, over 1000 bytes). Tests count the calls (at most 6 a tick) and check the `content-encoding`. The browser
 side was measured at 60 fps with a 4x CPU slowdown, so it was left alone. `render.yaml` sets `region: singapore` to match Neon.
+Measured on the hosted site after moving Render next to Neon: the request with no database work fell from 354 ms to 143 ms and
+one with a single database call from 584 ms to 127 ms. What remains is CPU on the free instance, so the 100x speed is gone (`SPEEDS`
+is 1, 4, 10, 30) and `POST /api/runs` returns the stored run when the same settings come again (a run is fixed by its settings).

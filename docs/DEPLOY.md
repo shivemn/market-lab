@@ -34,8 +34,10 @@ app and the database are.
 - Keep Render and Neon in one region. Across an ocean a round trip is 150 ms or more, and even 4 calls cost 0.6 s of
   every 1 s tick; with 31 it would be several seconds. A region cannot be changed on an existing Render service: create
   it again with the right region.
-- The free Render instance has a small share of a CPU. It is enough for one person at 10x, but 100x makes every reply
-  ten times larger, so use 30x or less on the free plan.
+- The free Render instance has a small share of a CPU: about 11 times slower than a laptop in the measurements
+  below (a day's simulation took 1.3 s there and 0.115 s locally; `config` and `me` fell from 354 and 584 ms to 143 and
+  127 ms once the app moved next to the database). It is smooth for one person at 10x and 30x. The 100x speed was
+  removed because each reply at 100x is ten times larger. Asking for the same day twice does not simulate it twice.
 
 Things to know about the free plans (as of November 2026; check the current terms, they change):
 - **Render web service:** sleeps after about 15 minutes without visits and takes about a minute to wake. Open it once

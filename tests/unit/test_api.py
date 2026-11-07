@@ -167,3 +167,17 @@ def test_only_a_few_runs_are_kept(client: TestClient) -> None:
     ]
     assert client.get(f"/api/runs/{ids[-1]}").status_code == 200
     assert client.get(f"/api/runs/{ids[0]}").status_code == 404
+
+
+def test_the_same_settings_are_simulated_once() -> None:
+    from unittest import mock
+
+    import marketlab.api.app as app_module
+
+    client = TestClient(create_app())
+    with mock.patch.object(app_module, "run_simulation", side_effect=run_simulation) as spy:
+        first = client.post("/api/runs", json={"open_seconds": 20, "pre_open_seconds": 5}).json()
+        second = client.post("/api/runs", json={"open_seconds": 20, "pre_open_seconds": 5}).json()
+        third = client.post("/api/runs", json={"open_seconds": 21, "pre_open_seconds": 5}).json()
+    assert first == second and first["id"] != third["id"]
+    assert spy.call_count == 2

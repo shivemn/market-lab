@@ -4,7 +4,8 @@ import type { MarketEvent } from "./market";
 
 export type Status = "idle" | "starting" | "playing" | "paused" | "done" | "error";
 
-export const SPEEDS = [1, 4, 10, 30, 100];
+// 100x was dropped: every reply is ten times larger than at 10x, which a small free server cannot keep up with.
+export const SPEEDS = [1, 4, 10, 30];
 
 /** Starts a simulated day on the server and collects its events as they stream in. */
 export function useRun() {

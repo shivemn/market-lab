@@ -431,6 +431,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
     # which is most of the wait on a slow link or a small server.
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
     store = RunStore()
+    run_ids: dict[SimConfig, str] = {}  # a run is fixed by its settings, so the same settings need no second simulation
     ledger = Ledger(db_path, shared_across_threads=True)
     sessions: OrderedDict[str, PracticeSession] = OrderedDict()
     worlds: OrderedDict[str, PracticeWorld] = OrderedDict()
@@ -630,7 +631,14 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
             pre_open_seconds=request.pre_open_seconds,
             noise_traders=request.noise_traders,
         )
-        return summary(store.add(run_simulation(config)))
+        known = store.get(run_ids[config]) if config in run_ids else None
+        if known is not None:
+            return summary(known)
+        stored = store.add(run_simulation(config))
+        run_ids[config] = stored.id
+        if len(run_ids) > 4 * MAX_RUNS_KEPT:
+            run_ids.pop(next(iter(run_ids)))
+        return summary(stored)
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict[str, Any]:
