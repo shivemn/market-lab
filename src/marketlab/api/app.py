@@ -779,6 +779,7 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
             return {
                 **world_json(world_id, pw),
                 "plan": PLANS[request.plan].description,
+                "index_factors": pw.world.index_factors(),
                 **new_events(pw, dict.fromkeys(pw.world.sims, 0)),
             }
 

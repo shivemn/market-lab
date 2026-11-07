@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { biggestMove, extremes, lastEndAtOrBefore, Point, priceAxis, tradesUpTo, TradePoint, volumeSlices } from "./series";
+import { biggestMove, extremes, indexSeries, lastEndAtOrBefore, Point, priceAxis, tradesUpTo, TradePoint, volumeSlices } from "./series";
 
 const s = (t: number, price: number): Point => ({ t: t * 1_000_000, price });
 
@@ -73,5 +73,32 @@ describe("priceAxis", () => {
     const axis = priceAxis([248_100, 251_900], 250_000);
     expect(axis.ticks.length).toBeGreaterThanOrEqual(3);
     for (const tick of axis.ticks) expect(tick % 100).toBe(0);
+  });
+});
+
+describe("indexSeries", () => {
+  const trade = (_symbol: string, t: number, price: number) =>
+    ({ type: "Trade", sim_time: t * 1_000_000, price, quantity: 1 }) as never;
+  const factors = { A: 2, B: 1 }; // A counts twice as much per paise as B
+  const closes = { A: 100, B: 300 }; // the index opens at 2*100 + 1*300 = 500
+
+  it("moves by factor x the change in the company that just traded, the others holding their last price", () => {
+    const events = { A: [trade("A", 1, 110), trade("A", 5, 120)], B: [trade("B", 3, 290)] };
+    const line = indexSeries(events, factors, closes, 1);
+    expect(line.map((p) => [p.t / 1_000_000, p.price])).toEqual([
+      [1, 520], // A 110: 220 + 300
+      [3, 510], // B 290: 220 + 290
+      [5, 530], // A 120: 240 + 290
+    ]);
+  });
+  it("keeps only the last point in each bucket", () => {
+    const events = { A: [trade("A", 1, 110), trade("A", 1.5, 130)], B: [] };
+    const line = indexSeries(events, factors, closes, 10_000_000);
+    expect(line).toHaveLength(1);
+    expect(line[0].price).toBe(560);
+  });
+  it("is empty before anything has traded, and ignores companies outside the index", () => {
+    expect(indexSeries({ A: [], B: [] }, factors, closes, 1)).toEqual([]);
+    expect(indexSeries({ Z: [trade("Z", 1, 5)] }, factors, closes, 1)).toEqual([]);
   });
 });

@@ -218,3 +218,18 @@ def test_over_the_limit_the_least_recently_used_day_goes_first(
     client.post("/api/worlds", json={**SMALL, "owner": "p3"})
     assert client.get(f"/api/worlds/{ids[1]}").status_code == 404
     assert client.get(f"/api/worlds/{ids[0]}").status_code == 200
+
+
+def test_the_start_carries_index_factors_that_redraw_every_index_level(client: TestClient) -> None:
+    """A page draws the index line itself as sum(price x factor); that must agree with the server's exact levels."""
+    world = start(client)
+    wid = world["id"]
+    advanced = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 25, "pause_on_fill": False}).json()
+    snapshot = advanced["snapshot"]
+    assert set(world["index_factors"]) == {"cap", "equal", "price"}
+    for kind, factors in world["index_factors"].items():
+        assert set(factors) == {c["symbol"] for c in world["companies"]}
+        drawn = sum(factors[s] * price for s, price in snapshot["prices"].items())
+        assert drawn == pytest.approx(snapshot["indices"][kind]["level"], abs=1)  # within a hundredth of a point
+        at_open = sum(factors[c["symbol"]] * c["instrument"]["reference_price"] for c in world["companies"])
+        assert at_open == pytest.approx(snapshot["indices"][kind]["open"], abs=1)

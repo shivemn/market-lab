@@ -128,3 +128,39 @@ export function priceAxis(prices: readonly number[], reference: number): { low: 
   for (let value = Math.ceil(low / step) * step; value <= high; value += step) ticks.push(value);
   return { low, high, ticks };
 }
+
+/**
+ * An index drawn through the day: its level (hundredths of a point) after each trade in any of its companies.
+ * Level = the sum of (latest price x factor). A company that has not traded yet counts at yesterday's close, so
+ * the line starts from where the index opened. When many trades land in one bucket only the last is kept.
+ */
+export function indexSeries(
+  events: Readonly<Record<string, readonly MarketEvent[]>>,
+  factors: Readonly<Record<string, number>>,
+  closes: Readonly<Record<string, number>>,
+  bucketUs: number,
+): Point[] {
+  const trades: { symbol: string; t: number; price: number }[] = [];
+  for (const [symbol, list] of Object.entries(events)) {
+    if (!(symbol in factors)) continue;
+    for (const event of list) if (event.type === "Trade") trades.push({ symbol, t: event.sim_time, price: event.price });
+  }
+  trades.sort((a, b) => a.t - b.t); // stable: trades at the same instant keep their order
+  const price: Record<string, number> = { ...closes };
+  let level = 0;
+  for (const symbol of Object.keys(factors)) level += factors[symbol] * (price[symbol] ?? 0);
+  const points: Point[] = [];
+  let bucket = -1;
+  for (const trade of trades) {
+    level += factors[trade.symbol] * (trade.price - (price[trade.symbol] ?? 0));
+    price[trade.symbol] = trade.price;
+    const index = Math.floor(trade.t / bucketUs);
+    const point = { t: trade.t, price: level };
+    if (index === bucket) points[points.length - 1] = point;
+    else {
+      points.push(point);
+      bucket = index;
+    }
+  }
+  return points;
+}

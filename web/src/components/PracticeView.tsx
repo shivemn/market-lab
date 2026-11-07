@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
-import { tradeSeries } from "../lib/series";
+import { indexSeries, tradeSeries } from "../lib/series";
 import { useStatement } from "../lib/useStatement";
 import { useDays } from "../lib/useDays";
 import { useWorld } from "../lib/useWorld";
@@ -19,6 +19,7 @@ import { MarketBoard } from "./MarketBoard";
 import { headlineOf, NewsPanel, NewsTicker } from "./NewsPanel";
 import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
+import { IndexChart } from "./IndexChart";
 import { PriceChart } from "./PriceChart";
 import { StatementPanel } from "./StatementPanel";
 import { WorldHeader } from "./WorldHeader";
@@ -160,6 +161,12 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
   const state = useMemo(() => fold(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
   const trades = useMemo(() => tradeSeries(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
   const owner = snapshot?.owner ?? "";
+  const indexLine = useMemo(() => {
+    const f = world.factors?.[kind];
+    if (!f || !snapshot) return [];
+    const closes = Object.fromEntries(snapshot.companies.map((c) => [c.symbol, c.instrument.reference_price]));
+    return indexSeries(events, f, closes, Math.max(1, Math.floor(snapshot.close_at / 600)));
+  }, [version, kind, world.factors]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = useMemo<ActivityItem[]>(() => {
     const all: ActivityItem[] = [];
     [...touched].forEach((s, i) => {
@@ -271,6 +278,18 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
                 onSpeed={world.setSpeed}
                 onAuction={() => undefined}
                 onBiggest={() => undefined}
+              />
+              <IndexChart
+                name={snapshot.index_name}
+                kind={kind}
+                onKind={setKind}
+                line={indexLine}
+                open={snapshot.indices[kind].open}
+                level={snapshot.indices[kind].level}
+                nowUs={snapshot.now}
+                durationUs={snapshot.close_at}
+                preOpenUs={snapshot.open_at}
+                news={snapshot.news}
               />
               <Activity
                 mine={mine}

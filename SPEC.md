@@ -458,3 +458,9 @@ them. Tokens now start with the owner's name (`name.random`). `marketlab cluster
 worker is down, restarts dead workers, and stops them when it stops (including when it is killed: workers watch their
 parent). The suite runs on both databases (`MARKETLAB_TEST_PG`, `MARKETLAB_EXAMPLES_SCALE`), with CI jobs for both.
 Measured on a 2-core machine: see `docs/LOADTEST.md`, including what it could not show.
+
+26. **The index through the day:** the Practice tab draws the selected index under the company chart. The server sends,
+once at the start of a day, `index_factors` (for each index, what one paise of each company's price is worth in
+hundredths of a point: q_i x 100 / divisor). The page keeps a running sum over the trades it already holds, so the line
+costs no extra requests. A test checks that the factors redraw the server's exact level at the open and mid-day; the
+number shown is still the server's exact value, the line is only a drawing.

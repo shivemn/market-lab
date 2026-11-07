@@ -103,6 +103,8 @@ export interface WorldSnapshot {
 
 export interface WorldStart extends WorldSnapshot {
   plan: string;
+  /** For each index: hundredths of a point that one paise of each company's price is worth. */
+  index_factors: Record<IndexKind, Record<string, number>>;
   new_events: Record<string, MarketEvent[]>;
   new_ends: Record<string, number[]>;
 }

@@ -220,6 +220,21 @@ class World:
         """An index that reads 1000 at the base prices, and so reads the previous close's level when the day opens."""
         return Index.create(kind, self.members(sector), self.base_prices)
 
+    def index_factors(self) -> dict[str, dict[str, float]]:
+        """For each index, what one paise of each company's price is worth in hundredths of an index point.
+
+        Level = the sum of (price x factor), so a page can draw the index through the day from the trade prices it
+        already has, without asking the server for a number at every trade. Floats are fine here: this only draws
+        a line, and the level shown as a number always comes from the exact fractions.
+        """
+        out: dict[str, dict[str, float]] = {}
+        for kind in KINDS:
+            index = self.index(kind)
+            out[kind] = {
+                m.symbol: float(q * 100 / index.divisor) for m, q in zip(index.members, index.quantities, strict=True)
+            }
+        return out
+
     def fingerprints(self) -> dict[str, str]:
         return {s: hash_events(sim.events) for s, sim in self.sims.items()}
 

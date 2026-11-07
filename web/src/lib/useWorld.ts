@@ -10,6 +10,7 @@ import {
   startWorld,
   WorldRequest,
   WorldSnapshot,
+  WorldStart,
   WorldUpdate,
 } from "./world";
 
@@ -37,6 +38,7 @@ export function useWorld() {
   const [snapshot, setSnapshot] = useState<WorldSnapshot | null>(null);
   const [first, setFirst] = useState<WorldSnapshot | null>(null);
   const [plan, setPlan] = useState("");
+  const [factors, setFactors] = useState<WorldStart["index_factors"] | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [speed, setSpeedState] = useState(10);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export function useWorld() {
       setPlayed(false);
       setSnapshot(null);
       setFirst(null);
+      setFactors(null);
       setError(null);
       setRefusal(null);
       setNotice(null);
@@ -101,6 +104,7 @@ export function useWorld() {
         take({ new_events: opened.new_events, new_ends: opened.new_ends, snapshot: opened });
         setFirst(opened);
         setPlan(opened.plan);
+        setFactors(opened.index_factors);
         setStatus("paused"); // the person presses play when ready
       } catch (problem) {
         if (mine !== token.current) return;
@@ -202,6 +206,7 @@ export function useWorld() {
     snapshot,
     first,
     plan,
+    factors,
     status,
     speed,
     error,
