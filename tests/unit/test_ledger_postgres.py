@@ -99,3 +99,32 @@ def test_two_servers_cannot_spend_the_same_money_at_the_same_moment(url: str) ->
     assert len(wins) == 1 and len(refused) == 1  # one gets the money, the other is told no
     assert first.cash("shi") == 40
     assert first.verify() == []
+
+
+def test_a_dropped_connection_is_reopened_between_transactions_and_fails_cleanly_inside_one(url: str) -> None:
+    """A hosted database drops idle connections. Between transactions the ledger carries on; inside one it undoes it."""
+    import psycopg
+
+    assert PG_URL
+    ledger = Ledger(url)
+    ledger.ensure_account("a", "paise", allows_negative=True)
+    ledger.ensure_account("b", "paise", allows_negative=True)
+
+    def drop_every_other_connection() -> None:
+        with psycopg.connect(PG_URL, autocommit=True) as admin:
+            admin.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE pid <> pg_backend_pid() AND datname = current_database() AND application_name = ''"
+            )
+
+    drop_every_other_connection()
+    assert ledger.balance("a") == 0  # a plain read finds the connection dead, reopens it, and answers
+
+    with pytest.raises(psycopg.OperationalError):
+        with ledger.batch():
+            ledger.ensure_account("c", "paise")
+            drop_every_other_connection()
+            ledger.ensure_account("d", "paise")  # the transaction is gone with the connection
+    assert ledger.balance("a") == 0  # the ledger is usable again straight away
+    with pytest.raises(LedgerError):
+        ledger.balance("c")  # and "c" was undone with the rest of the transaction

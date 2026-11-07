@@ -92,7 +92,7 @@ The exchange handles other people's money in the long run, so it is tested harde
   a PostgreSQL job and a web job.
 
 ```
-pytest                       # 486 tests (5 skip without PostgreSQL)
+pytest                       # 487 tests (6 skip without PostgreSQL)
 ruff check .
 mypy
 cd web; npm test; cd ..      # 72 tests

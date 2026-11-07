@@ -477,3 +477,10 @@ started on one is there on the other. Play, pause and speed work on either; leav
 which the Practice screen (kept mounted, only hidden) does. Shifty 12 keeps its three weightings and its sector table;
 Shifty 7 shows the five companies that are not in it. The line, the high and the low come from the same factors and trades
 as the chart on Practice (`useIndexLine`, `lineRange`), so there are no extra requests.
+
+29. **Deploying:** Render runs the container; accounts and history live in a free Neon PostgreSQL database named by
+`DATABASE_URL` (set in Render's settings, asked for by `render.yaml` with `sync: false`, never committed). Use the direct
+connection string, not the pooled one: the migration takes a session-level advisory lock and psycopg prepares statements,
+neither of which survives a transaction pooler. Free databases pause when idle, so `PgConnection` reopens a dead connection
+and retries a statement once when no transaction is open; inside a transaction the error goes up and the ledger rolls back.
+A test kills the server's connections and shows both cases, and fails if the reconnect is removed.

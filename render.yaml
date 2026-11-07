@@ -1,7 +1,12 @@
 # One-click deploy on Render: New > Blueprint > pick this repository.
+# Render asks for DATABASE_URL when it creates the service (a postgresql:// address, for example from Neon).
+# It is never stored in this file or the repository.
 services:
   - type: web
     name: market-lab
     runtime: docker
     plan: free
     healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
