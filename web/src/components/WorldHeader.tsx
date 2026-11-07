@@ -1,6 +1,6 @@
 import { percentSigned, points, pointsSigned } from "../lib/format";
 import type { IndexKind, WorldSnapshot } from "../lib/world";
-import { INDEX_TEXT, sessionAt } from "../lib/worldview";
+import { INDEX_TEXT, indexTitle, sessionAt } from "../lib/worldview";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 const SESSION_WORDS = { CLOSED: "Closed", PRE_OPEN: "Before the open", OPEN: "Open" } as const;
@@ -17,7 +17,7 @@ export function WorldHeader({ snapshot, kind }: { snapshot: WorldSnapshot | null
         <div className="muted small">Pretend money, made-up companies</div>
       </div>
       <div className="quote">
-        <span className="symbol">{snapshot?.index_name ?? "Shifty 12"}</span>
+        <span className="symbol">{snapshot === null ? "Shifty 12" : indexTitle(snapshot, kind)}</span>
         <span className="price" aria-live="off">
           {view === null ? "…" : points(view.level)}
         </span>

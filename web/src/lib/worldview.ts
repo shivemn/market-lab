@@ -53,10 +53,18 @@ export function sessionAt(now: number, openAt: number, closeAt: number): "PRE_OP
   return now < closeAt ? "OPEN" : "CLOSED";
 }
 
+/** The index's own name: "Shifty 12", or "Shifty 7" for the Sensex-style one. */
+export const indexTitle = (snapshot: WorldSnapshot, kind: IndexKind): string =>
+  kind === "top" ? "Shifty 7" : snapshot.index_name;
+
 export const INDEX_TEXT: Record<IndexKind, { name: string; how: string }> = {
   cap: {
     name: "By company size",
     how: "Big companies move this index more. Each company counts in proportion to its share price times the number of shares open to the public. Nifty 50 and Sensex work this way.",
+  },
+  top: {
+    name: "Biggest seven only",
+    how: "Only the seven largest companies count, each by its size, like the Sensex, which holds just the 30 biggest of the market while Nifty 50 holds 50. The same formula as 'By company size' with fewer members, and it starts at 100 where the other starts at 1,000. The seven are fixed here; the real ones are reviewed twice a year.",
   },
   equal: {
     name: "Every company the same",

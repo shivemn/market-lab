@@ -24,7 +24,7 @@ export function IndexPanel({ snapshot, kind, onKind }: Props) {
       <p className="muted small how">{INDEX_TEXT[kind].how}</p>
       <p className="muted small how">
         The level is the sum of (price × shares counted) divided by a fixed number called the divisor, set so the index
-        started at 1,000. The divisor only changes when something other than a price changes, such as a share split.
+        started at {kind === "top" ? "100" : "1,000"}. The divisor only changes when something other than a price changes, such as a share split.
       </p>
       <div className="table-scroll" tabIndex={0}>
         <table className="statement index-table">
@@ -40,6 +40,19 @@ export function IndexPanel({ snapshot, kind, onKind }: Props) {
           <tbody>
             {snapshot.companies.map((c) => {
               const m = view.members[c.symbol];
+              if (m === undefined) {
+                return (
+                  <tr key={c.symbol} className="outside">
+                    <td>
+                      <b>{c.symbol}</b> <span className="muted small">{c.name}</span>
+                    </td>
+                    <td>{rupees(snapshot.prices[c.symbol])}</td>
+                    <td className="muted" colSpan={2}>
+                      Not in this index
+                    </td>
+                  </tr>
+                );
+              }
               const dir = m.points === 0 ? "flat" : m.points > 0 ? "up" : "down";
               return (
                 <tr key={c.symbol}>

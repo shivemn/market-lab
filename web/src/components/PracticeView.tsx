@@ -6,7 +6,7 @@ import { useStatement } from "../lib/useStatement";
 import { useDays } from "../lib/useDays";
 import { useWorld } from "../lib/useWorld";
 import type { IndexKind, WorldRequest } from "../lib/world";
-import { compare, indexPercent, sign, worldDay } from "../lib/worldview";
+import { compare, indexPercent, indexTitle, sign, worldDay } from "../lib/worldview";
 import { AccountStrip } from "./AccountStrip";
 import { Activity, ActivityTab } from "./Activity";
 import { useAccount } from "./AuthGate";
@@ -185,7 +185,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
 
   const day = snapshot !== null && first !== null ? worldDay(first, snapshot) : null;
   const versus =
-    snapshot !== null && day !== null ? compare(day.youPercent, indexPercent(snapshot, kind), snapshot.index_name) : null;
+    snapshot !== null && day !== null ? compare(day.youPercent, indexPercent(snapshot, kind), indexTitle(snapshot, kind)) : null;
 
   // when the market closes, say how the day went (once the statement has caught up with the final balances)
   useEffect(() => {
@@ -280,7 +280,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
                 onBiggest={() => undefined}
               />
               <IndexChart
-                name={snapshot.index_name}
+                name={indexTitle(snapshot, kind)}
                 kind={kind}
                 onKind={setKind}
                 line={indexLine}
@@ -346,7 +346,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
               days={days}
               standings={[
                 { label: "You", percent: day.youPercent, you: true },
-                { label: snapshot.index_name, percent: indexPercent(snapshot, kind) },
+                { label: indexTitle(snapshot, kind), percent: indexPercent(snapshot, kind) },
                 ...snapshot.benchmarks.map((b) => ({ label: b.label, percent: b.bp / 100, note: b.note })),
               ].sort((a, b) => b.percent - a.percent)}
               news={snapshot.news.map((n) => ({ headline: headlineOf(n), bp: n.impact_bp }))}

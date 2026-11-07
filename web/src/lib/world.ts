@@ -14,8 +14,8 @@ export interface PracticeInstrument {
 export class Refused extends Error {}
 
 
-export type IndexKind = "cap" | "equal" | "price";
-export const INDEX_KINDS: readonly IndexKind[] = ["cap", "equal", "price"];
+export type IndexKind = "cap" | "top" | "equal" | "price";
+export const INDEX_KINDS: readonly IndexKind[] = ["cap", "top", "equal", "price"];
 
 export interface WorldCompany {
   symbol: string;

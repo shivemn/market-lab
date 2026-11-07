@@ -219,3 +219,16 @@ def test_traders_pull_quotes_the_price_has_walked_away_from() -> None:
         return max((abs(o.price - last) / last for o in mine), default=0.0)
 
     assert stalest(0.004) < stalest(0.0)
+
+
+def test_shifty_7_holds_the_seven_biggest_companies_and_starts_at_100() -> None:
+    world = World(WorldConfig(seed=1))
+    members = [m.symbol for m in world.top_members()]
+    assert len(members) == 7
+    size = {c.symbol: world.base_prices[c.symbol] * c.free_float_shares for c in world.companies}
+    smallest_in = min(size[s] for s in members)
+    assert all(size[s] <= smallest_in for s in size if s not in members)  # nobody left out is bigger than someone in
+    top = world.top_index()
+    assert top.level(world.base_prices) == 100  # the Sensex-style base
+    assert sum(top.weights(world.base_prices).values()) == 1
+    assert set(top.weights(world.base_prices)) == set(members)

@@ -87,7 +87,11 @@ CATALOGUE: tuple[Company, ...] = (
 BY_SYMBOL = {c.symbol: c for c in CATALOGUE}
 
 INDEX_NAME = "Shifty 12"
+TOP_NAME = "Shifty 7"  # the Sensex-style index: only the biggest companies, same formula, a smaller base value
+TOP_COUNT = 7  # 30 of Nifty's 50 is 60%; 60% of twelve is about seven
+TOP_BASE = 100  # the Sensex started at 100
 INDEX_NAMES: dict[str, str] = {
+    "top": f"{TOP_NAME} (the biggest seven)",
     "cap": f"{INDEX_NAME} (by company size)",
     "equal": f"{INDEX_NAME} Equal (every company counts the same)",
     "price": f"{INDEX_NAME} Price (dearer shares count more)",
@@ -220,6 +224,18 @@ class World:
         """An index that reads 1000 at the base prices, and so reads the previous close's level when the day opens."""
         return Index.create(kind, self.members(sector), self.base_prices)
 
+    def top_members(self) -> list[Member]:
+        """The `TOP_COUNT` companies with the largest free-float market capitalisation (price x shares open to the
+        public) at the base prices. Ties go to the earlier symbol. The list is fixed: this simulator does not hold the
+        twice-yearly review that moves companies in and out of the real Sensex and Nifty 50."""
+        ranked = sorted(self.companies, key=lambda c: (-self.base_prices[c.symbol] * c.free_float_shares, c.symbol))
+        chosen = {c.symbol for c in ranked[:TOP_COUNT]}
+        return [Member(c.symbol, c.free_float_shares) for c in self.companies if c.symbol in chosen]
+
+    def top_index(self) -> Index:
+        """Cap-weighted like the Sensex, over the biggest companies only, starting from `TOP_BASE`."""
+        return Index.create("cap", self.top_members(), self.base_prices, base_value=TOP_BASE)
+
     def index_factors(self) -> dict[str, dict[str, float]]:
         """For each index, what one paise of each company's price is worth in hundredths of an index point.
 
@@ -228,8 +244,7 @@ class World:
         a line, and the level shown as a number always comes from the exact fractions.
         """
         out: dict[str, dict[str, float]] = {}
-        for kind in KINDS:
-            index = self.index(kind)
+        for kind, index in [*((k, self.index(k)) for k in KINDS), ("top", self.top_index())]:
             out[kind] = {
                 m.symbol: float(q * 100 / index.divisor) for m, q in zip(index.members, index.quantities, strict=True)
             }
@@ -611,6 +626,19 @@ class PracticeWorld:
                     s: {"weight_bp": round(weights[s] * 10_000), "points": hundredths(moved[s])} for s in weights
                 },
             }
+        top = self.world.top_index()
+        top_weights = top.weights(prices)
+        top_moved = top.contributions(prices, base)
+        out["top"] = {
+            "name": INDEX_NAMES["top"],
+            "level": hundredths(top.level(prices)),
+            "open": hundredths(top.level(base)),
+            "change": hundredths(top.level(prices) - top.level(base)),
+            "members": {
+                s: {"weight_bp": round(top_weights[s] * 10_000), "points": hundredths(top_moved[s])}
+                for s in top_weights
+            },
+        }
         sectors: dict[str, object] = {}
         for key, label in SECTORS:
             sector_index = self.world.index("cap", key)

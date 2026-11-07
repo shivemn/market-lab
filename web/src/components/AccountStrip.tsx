@@ -1,6 +1,6 @@
 import { percentSigned, rupees, signed } from "../lib/format";
 import type { IndexKind, WorldSnapshot } from "../lib/world";
-import { compare, indexPercent, sign, worldDay } from "../lib/worldview";
+import { compare, indexPercent, indexTitle, sign, worldDay } from "../lib/worldview";
 
 interface Props {
   snapshot: WorldSnapshot;
@@ -12,7 +12,7 @@ interface Props {
 export function AccountStrip({ snapshot, first, kind }: Props) {
   const day = worldDay(first, snapshot);
   const direction = day.result > 0 ? "up" : day.result < 0 ? "down" : "flat";
-  const versus = compare(day.youPercent, indexPercent(snapshot, kind), snapshot.index_name);
+  const versus = compare(day.youPercent, indexPercent(snapshot, kind), indexTitle(snapshot, kind));
   const versusDir = Math.abs(versus.gap) < 0.005 ? "flat" : versus.gap > 0 ? "up" : "down";
   const { portfolio } = snapshot;
   const held = Object.values(portfolio.holdings).filter((h) => h.shares + h.locked > 0).length;
@@ -31,7 +31,7 @@ export function AccountStrip({ snapshot, first, kind }: Props) {
       </div>
       <div className="stat wide">
         <span className="k">Compared with the index</span>
-        <span className={`v ${versusDir}`}>{versus.words.replace(`${snapshot.index_name}`, "the index")}</span>
+        <span className={`v ${versusDir}`}>{versus.words.replace(indexTitle(snapshot, kind), "the index")}</span>
         <span className="sub">
           you {sign(versus.you)} · index {sign(versus.index)}
         </span>

@@ -43,7 +43,7 @@ def test_advancing_returns_new_events_per_company_and_a_fresh_snapshot(client: T
     again = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 5, "pause_on_fill": False}).json()
     last_before = max(e["seq"] for e in first["new_events"]["UDHAAR"])
     assert all(e["seq"] > last_before for e in again["new_events"]["UDHAAR"])  # only what is new, in order
-    assert set(again["snapshot"]["indices"]) == {"cap", "equal", "price", "sectors"}
+    assert set(again["snapshot"]["indices"]) == {"cap", "equal", "price", "top", "sectors"}
 
 
 def test_an_order_is_placed_in_one_company_and_shows_in_the_portfolio(client: TestClient) -> None:
@@ -226,10 +226,14 @@ def test_the_start_carries_index_factors_that_redraw_every_index_level(client: T
     wid = world["id"]
     advanced = client.post(f"/api/worlds/{wid}/advance", json={"seconds": 25, "pause_on_fill": False}).json()
     snapshot = advanced["snapshot"]
-    assert set(world["index_factors"]) == {"cap", "equal", "price"}
+    assert set(world["index_factors"]) == {"cap", "equal", "price", "top"}
     for kind, factors in world["index_factors"].items():
-        assert set(factors) == {c["symbol"] for c in world["companies"]}
-        drawn = sum(factors[s] * price for s, price in snapshot["prices"].items())
+        assert set(factors) == set(snapshot["indices"][kind]["members"])  # only the index's own members
+        drawn = sum(factors[s] * snapshot["prices"][s] for s in factors)
         assert drawn == pytest.approx(snapshot["indices"][kind]["level"], abs=1)  # within a hundredth of a point
-        at_open = sum(factors[c["symbol"]] * c["instrument"]["reference_price"] for c in world["companies"])
+        at_open = sum(
+            factors[c["symbol"]] * c["instrument"]["reference_price"]
+            for c in world["companies"]
+            if c["symbol"] in factors
+        )
         assert at_open == pytest.approx(snapshot["indices"][kind]["open"], abs=1)

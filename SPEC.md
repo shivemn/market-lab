@@ -464,3 +464,9 @@ once at the start of a day, `index_factors` (for each index, what one paise of e
 hundredths of a point: q_i x 100 / divisor). The page keeps a running sum over the trades it already holds, so the line
 costs no extra requests. A test checks that the factors redraw the server's exact level at the open and mid-day; the
 number shown is still the server's exact value, the line is only a drawing.
+
+27. **Shifty 7, the Sensex-style index:** the same cap-weighted formula over the `TOP_COUNT` = 7 companies with the largest
+free-float market capitalisation at the base prices, starting at `TOP_BASE` = 100 (Sensex: 30 of the market's biggest, base
+100; Nifty 50: 50, base 1000; 30/50 of twelve is about seven). Membership is fixed. The real indices are reviewed twice a
+year and the divisor absorbs each change (`Index.rebalance` does this and is tested), but this simulator has no review
+date, so it is not simulated. It appears as `indices["top"]` and in `index_factors`, and in the page as a fourth choice.

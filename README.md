@@ -317,7 +317,7 @@ previous day's closing prices.
 
 The **Shifty 12** index is worked out with the real formula: the sum of price times shares open to the public, divided by
 a fixed divisor. You can switch between by-company-size (Nifty, Sensex), every-company-the-same, and the Dow-style
-dearer-shares-count-more, and the Practice tab draws the index through the day under the company chart. The divisor logic is tested with a share split. Your result is shown company by company
+dearer-shares-count-more, and a fourth, **Shifty 7**, which mimics the Sensex: the same formula over only the seven biggest companies, starting at 100 (the Sensex holds the 30 biggest, Nifty 50 holds 50; the seven are fixed here, while the real ones are reviewed twice a year). The Practice tab draws the chosen index through the day under the company chart. The divisor logic is tested with a share split. Your result is shown company by company
 (locked in, on paper, charges, net) and against the index.
 
 ![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-light.png)
