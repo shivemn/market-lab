@@ -470,3 +470,10 @@ free-float market capitalisation at the base prices, starting at `TOP_BASE` = 10
 100; Nifty 50: 50, base 1000; 30/50 of twelve is about seven). Membership is fixed. The real indices are reviewed twice a
 year and the divisor absorbs each change (`Index.rebalance` does this and is tested), but this simulator has no review
 date, so it is not simulated. It appears as `indices["top"]` and in `index_factors`, and in the page as a fourth choice.
+
+28. **An Indices screen:** a fourth tab, only about Shifty 12 and Shifty 7 (two large buttons that also show each level and day
+change). It reuses the practice day: the day's state (`useWorld`) now lives in `App` and is passed to both screens, so a day
+started on one is there on the other. Play, pause and speed work on either; leaving for another screen pauses the day,
+which the Practice screen (kept mounted, only hidden) does. Shifty 12 keeps its three weightings and its sector table;
+Shifty 7 shows the five companies that are not in it. The line, the high and the low come from the same factors and trades
+as the chart on Practice (`useIndexLine`, `lineRange`), so there are no extra requests.

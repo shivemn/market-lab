@@ -275,3 +275,15 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .totals small { display: block; }
 .worth-line { margin: 4px 0; }
 .worth-line svg { width: 100%; max-width: 640px; height: auto; display: block; }
+
+/* the page about the two indices */
+.index-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 4px 0 12px; }
+.index-card { display: grid; gap: 2px; text-align: left; padding: 14px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
+.index-card.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+.index-card-name { font-size: 20px; font-weight: 700; }
+.index-card-sub { font-size: 13px; color: var(--muted); }
+.index-card-level { font-family: var(--font-num); font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.index-card .change { font-size: 15px; }
+.weighting { max-width: 640px; margin-bottom: 12px; }
+.index-stats { margin: 0 0 12px; }
+@media (max-width: 600px) { .index-picker { grid-template-columns: 1fr; } }

@@ -164,3 +164,15 @@ export function indexSeries(
   }
   return points;
 }
+
+/** The highest and lowest level of an index line, rounded to whole hundredths (the line itself is a drawing in floats). */
+export function lineRange(line: readonly Point[]): { high: number; low: number } | null {
+  if (line.length === 0) return null;
+  let high = line[0].price;
+  let low = line[0].price;
+  for (const p of line) {
+    if (p.price > high) high = p.price;
+    if (p.price < low) low = p.price;
+  }
+  return { high: Math.round(high), low: Math.round(low) };
+}

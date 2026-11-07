@@ -6,21 +6,24 @@ interface Props {
   snapshot: WorldSnapshot;
   kind: IndexKind;
   onKind: (kind: IndexKind) => void;
+  showKinds?: boolean; // false where the page already has its own switch
 }
 
 /** How the index is built, and which companies moved it today. */
-export function IndexPanel({ snapshot, kind, onKind }: Props) {
+export function IndexPanel({ snapshot, kind, onKind, showKinds = true }: Props) {
   const view = snapshot.indices[kind];
   const biggest = Math.max(1, ...Object.values(view.members).map((m) => Math.abs(m.points)));
   return (
     <div className="index-wrap">
-      <div className="seg quiet" role="group" aria-label="How the index is worked out">
-        {INDEX_KINDS.map((k) => (
-          <button key={k} type="button" className={k === kind ? "on" : ""} aria-pressed={k === kind} onClick={() => onKind(k)}>
-            {INDEX_TEXT[k].name}
-          </button>
-        ))}
-      </div>
+      {showKinds && (
+        <div className="seg quiet" role="group" aria-label="How the index is worked out">
+          {INDEX_KINDS.map((k) => (
+            <button key={k} type="button" className={k === kind ? "on" : ""} aria-pressed={k === kind} onClick={() => onKind(k)}>
+              {INDEX_TEXT[k].name}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="muted small how">{INDEX_TEXT[kind].how}</p>
       <p className="muted small how">
         The level is the sum of (price × shares counted) divided by a fixed number called the divisor, set so the index

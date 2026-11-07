@@ -4,6 +4,7 @@ import { Header } from "./components/Header";
 import { Queue } from "./components/Queue";
 import { AuctionView } from "./components/AuctionView";
 import { PriceChart } from "./components/PriceChart";
+import { IndicesView } from "./components/IndicesView";
 import { PracticeView } from "./components/PracticeView";
 import { HowToRead, JustHappened, StartPanel } from "./components/Side";
 import { fold } from "./lib/market";
@@ -11,13 +12,15 @@ import { narrateLog } from "./lib/narrate";
 import { biggestMove, endTimes, lastEndAtOrBefore, priceSeries, tradeSeries } from "./lib/series";
 import { COMPANIES } from "./lib/companies";
 import { useRun } from "./lib/useRun";
+import { useWorld } from "./lib/useWorld";
 
 export default function App() {
   const run = useRun();
+  const world = useWorld(); // one practice day, shared by the Practice and Indices screens
   const { events, ends, version, summary } = run;
   const [cursor, setCursor] = useState<number | null>(null); // index into ends; null means "the latest moment"
   const [followed, setFollowed] = useState<number | null>(null);
-  const [view, setView] = useState<"day" | "auction" | "practice">("day");
+  const [view, setView] = useState<"day" | "auction" | "practice" | "indices">("day");
   const { start } = run;
   const [company, setCompany] = useState("UDHAAR");
 
@@ -82,6 +85,9 @@ export default function App() {
       <button className={`tab${view === "practice" ? " on" : ""}`} aria-pressed={view === "practice"} onClick={() => setView("practice")}>
         Practice
       </button>
+      <button className={`tab${view === "indices" ? " on" : ""}`} aria-pressed={view === "indices"} onClick={() => setView("indices")}>
+        Indices
+      </button>
     </nav>
     <AccountChip />
     </div>
@@ -90,14 +96,21 @@ export default function App() {
   // The practice screen is only hidden, never closed, so a day in progress (and its history) is still there when you come back.
   const [visitedPractice, setVisitedPractice] = useState(false);
   useEffect(() => {
-    if (view === "practice") setVisitedPractice(true);
+    if (view === "practice" || view === "indices") setVisitedPractice(true); // it must stay mounted: it pauses the day when you leave
   }, [view]);
-  const practice = visitedPractice || view === "practice" ? (
+  const practice = visitedPractice || view === "practice" || view === "indices" ? (
     <div hidden={view !== "practice"}>
-      <PracticeView tabs={tabs} active={view === "practice"} />
+      <PracticeView tabs={tabs} world={world} active={view === "practice" || view === "indices"} />
     </div>
   ) : null;
   if (view === "practice") return practice;
+  if (view === "indices")
+    return (
+      <>
+        {practice}
+        <IndicesView tabs={tabs} world={world} />
+      </>
+    );
 
   return (
     <>

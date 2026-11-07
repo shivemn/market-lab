@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
-import { indexSeries, tradeSeries } from "../lib/series";
+import { tradeSeries } from "../lib/series";
+import { useIndexLine } from "../lib/useIndexLine";
 import { useStatement } from "../lib/useStatement";
 import { useDays } from "../lib/useDays";
 import { useWorld } from "../lib/useWorld";
@@ -24,10 +25,10 @@ import { PriceChart } from "./PriceChart";
 import { StatementPanel } from "./StatementPanel";
 import { WorldHeader } from "./WorldHeader";
 
-type Practice = ReturnType<typeof useWorld>;
+export type Practice = ReturnType<typeof useWorld>;
 type PlanName = WorldRequest["plan"];
 
-function StartCard({ practice, again, refresh }: { practice: Practice; again?: boolean; refresh?: unknown }) {
+export function StartCard({ practice, again, refresh }: { practice: Practice; again?: boolean; refresh?: unknown }) {
   const account = useAccount();
   const [typed, setOwner] = useState("you");
   const owner = account.username ?? typed; // signed in: the account is your sign-in name, not a box to fill
@@ -137,8 +138,7 @@ function Coach({ played, ordered, holding }: { played: boolean; ordered: boolean
   );
 }
 
-export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolean }) {
-  const world = useWorld();
+export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active: boolean; world: Practice }) {
   const { events, ends, touched, version, snapshot, first } = world;
   const [selected, setSelected] = useState("UDHAAR");
   const [kind, setKind] = useState<IndexKind>("cap");
@@ -161,12 +161,7 @@ export function PracticeView({ tabs, active }: { tabs: ReactNode; active: boolea
   const state = useMemo(() => fold(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
   const trades = useMemo(() => tradeSeries(events[symbol] ?? []), [version, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
   const owner = snapshot?.owner ?? "";
-  const indexLine = useMemo(() => {
-    const f = world.factors?.[kind];
-    if (!f || !snapshot) return [];
-    const closes = Object.fromEntries(snapshot.companies.map((c) => [c.symbol, c.instrument.reference_price]));
-    return indexSeries(events, f, closes, Math.max(1, Math.floor(snapshot.close_at / 600)));
-  }, [version, kind, world.factors]); // eslint-disable-line react-hooks/exhaustive-deps
+  const indexLine = useIndexLine(events, version, world.factors, snapshot, kind);
   const mine = useMemo<ActivityItem[]>(() => {
     const all: ActivityItem[] = [];
     [...touched].forEach((s, i) => {

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { ReactNode, useMemo, useRef } from "react";
 import { clock, percentSigned, points, pointsSigned } from "../lib/format";
 import { Point, priceAxis } from "../lib/series";
 import { useWidth } from "../lib/useWidth";
@@ -16,16 +16,20 @@ interface Props {
   durationUs: number;
   preOpenUs: number;
   news: { at: number; silent: boolean; headline: string }[];
+  height?: number; // a taller chart for the page that is only about indices
+  controls?: ReactNode; // play, pause and speed, when the chart is not next to a company chart that has them
+  showKinds?: boolean; // the switch between ways of working out the index (the page for indices has its own)
 }
 
 const HEIGHT = 230;
 const LEFT = 72;
 const RIGHT = 16;
 const TOP = 14;
-const BOTTOM = 192;
+const BOTTOM_GAP = 38;
 
 /** The whole market at a glance: the index through the day, drawn like a company's price. */
-export function IndexChart({ name, kind, onKind, line, open, level, nowUs, durationUs, preOpenUs, news }: Props) {
+export function IndexChart({ name, kind, onKind, line, open, level, nowUs, durationUs, preOpenUs, news, height = HEIGHT, controls, showKinds = true }: Props) {
+  const BOTTOM = height - BOTTOM_GAP;
   const box = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
   const narrow = width < 600;
@@ -66,16 +70,19 @@ export function IndexChart({ name, kind, onKind, line, open, level, nowUs, durat
             {points(level)} <span className={`change ${direction}`}>{change === 0 ? "unchanged" : `${direction === "up" ? "▲" : "▼"} ${pointsSigned(change)} (${percentSigned(change, open)})`}</span>
           </span>
         </h2>
-        <div className="seg quiet" role="group" aria-label="How the index is worked out">
-          {INDEX_KINDS.map((k) => (
-            <button key={k} type="button" className={k === kind ? "on" : ""} aria-pressed={k === kind} onClick={() => onKind(k)}>
-              {INDEX_TEXT[k].name}
-            </button>
-          ))}
-        </div>
+        {showKinds && (
+          <div className="seg quiet" role="group" aria-label="How the index is worked out">
+            {INDEX_KINDS.map((k) => (
+              <button key={k} type="button" className={k === kind ? "on" : ""} aria-pressed={k === kind} onClick={() => onKind(k)}>
+                {INDEX_TEXT[k].name}
+              </button>
+            ))}
+          </div>
+        )}
+        {controls}
       </div>
-      <div className="chartbox" ref={box} style={{ height: HEIGHT }}>
-        <svg role="img" aria-label={`Index chart. ${caption}`} width={width} height={HEIGHT}>
+      <div className="chartbox" ref={box} style={{ height }}>
+        <svg role="img" aria-label={`Index chart. ${caption}`} width={width} height={height}>
           {news.map((n, i) => (
             <g key={i} className={`news-mark${n.silent ? " silent" : ""}`}>
               <title>{n.headline}</title>

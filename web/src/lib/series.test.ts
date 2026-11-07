@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { biggestMove, extremes, indexSeries, lastEndAtOrBefore, Point, priceAxis, tradesUpTo, TradePoint, volumeSlices } from "./series";
+import { biggestMove, extremes, indexSeries, lastEndAtOrBefore, lineRange, Point, priceAxis, tradesUpTo, TradePoint, volumeSlices } from "./series";
 
 const s = (t: number, price: number): Point => ({ t: t * 1_000_000, price });
 
@@ -100,5 +100,14 @@ describe("indexSeries", () => {
   it("is empty before anything has traded, and ignores companies outside the index", () => {
     expect(indexSeries({ A: [], B: [] }, factors, closes, 1)).toEqual([]);
     expect(indexSeries({ Z: [trade("Z", 1, 5)] }, factors, closes, 1)).toEqual([]);
+  });
+});
+
+describe("lineRange", () => {
+  it("gives the highest and lowest level as whole hundredths", () => {
+    expect(lineRange([s(0, 99527.256), s(1, 100010.4), s(2, 99800)])).toEqual({ high: 100010, low: 99527 });
+  });
+  it("is null for an empty line", () => {
+    expect(lineRange([])).toBeNull();
   });
 });
