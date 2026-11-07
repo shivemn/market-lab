@@ -112,7 +112,7 @@ def build_statement(ledger: Ledger, owner: str) -> Statement:
     money = 0
     shares: dict[str, int] = {}
     rows: list[StatementRow] = []
-    for tx in ledger.transactions():
+    for tx in ledger.owner_transactions(owner):
         amounts: dict[str, int] = {}
         for entry in tx.entries:
             amounts[entry.account] = amounts.get(entry.account, 0) + entry.amount
@@ -149,5 +149,6 @@ def build_statement(ledger: Ledger, owner: str) -> Statement:
                 shares[symbol] = shares.get(symbol, 0) + change
                 rows.append(StatementRow(tx.at, "grant", tx.memo, symbol, change, 0, (), 0, money, shares[symbol]))
     held = tuple(sorted((symbol, qty) for symbol, qty in shares.items() if qty))
-    stored = ledger.balance(cash) + (ledger.balance(reserved) if ledger.has_account(reserved) else 0)
+    mine_now = ledger.owner_balances(owner)
+    stored = mine_now[cash] + mine_now.get(reserved, 0)
     return Statement(owner, tuple(rows), stored, held)

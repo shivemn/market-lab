@@ -237,3 +237,44 @@ def test_the_start_carries_index_factors_that_redraw_every_index_level(client: T
             if c["symbol"] in factors
         )
         assert at_open == pytest.approx(snapshot["indices"][kind]["open"], abs=1)
+
+
+def test_moving_the_day_on_costs_a_handful_of_database_calls_however_many_stocks(client: TestClient) -> None:
+    """Each call is a network round trip on a hosted database, so a tick that makes dozens of them lags."""
+    import gc
+
+    from marketlab.ledger import Ledger
+
+    ledger = next(o for o in gc.get_objects() if isinstance(o, Ledger))
+    real = ledger._conn
+    calls = 0
+
+    class Counting:
+        def execute(self, *args: Any) -> Any:
+            nonlocal calls
+            calls += 1
+            return real.execute(*args)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(real, name)
+
+    world = start(client)
+    ledger._conn = Counting()
+    try:
+        for _ in range(3):
+            response = client.post(f"/api/worlds/{world['id']}/advance", json={"seconds": 2, "pause_on_fill": False})
+            assert response.status_code == 200
+    finally:
+        ledger._conn = real
+    assert calls <= 3 * 6, f"{calls} database calls for three ticks"
+
+
+def test_big_replies_are_compressed(client: TestClient) -> None:
+    world = start(client)
+    response = client.post(
+        f"/api/worlds/{world['id']}/advance",
+        json={"seconds": 20, "pause_on_fill": False},
+        headers={"accept-encoding": "gzip"},
+    )
+    assert response.headers.get("content-encoding") == "gzip"
+    assert response.json()["now"] > 0

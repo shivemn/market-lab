@@ -320,6 +320,18 @@ class Ledger:
         ).fetchall()
         return {str(unit): int(balance) for unit, balance in rows}
 
+    @staticmethod
+    def _owner_prefix(owner: str) -> str:
+        return cash_account(owner).removesuffix("cash")
+
+    def owner_balances(self, owner: str) -> dict[str, int]:
+        """Every account balance an owner has (cash, reserved, shares, locked shares) in a single query."""
+        prefix = self._owner_prefix(owner)
+        rows = self._conn.execute(
+            "SELECT id, balance FROM accounts WHERE substr(id, 1, ?) = ?", (len(prefix), prefix)
+        ).fetchall()
+        return {str(a): int(b) for a, b in rows}
+
     def balances(self) -> dict[str, int]:
         return {str(a): int(b) for a, b in self._conn.execute("SELECT id, balance FROM accounts ORDER BY id")}
 
@@ -399,16 +411,33 @@ class Ledger:
     # -- reading and checking ---------------------------------------------------------------------------------
 
     def transactions(self) -> list[Transaction]:
+        return self._read_transactions("", ())
+
+    def owner_transactions(self, owner: str) -> list[Transaction]:
+        """Only the transactions that touch one owner's accounts, found by the database in one trip each.
+
+        A statement needs nothing else, and reading the whole ledger for it would get slower with every other
+        person's trade.
+        """
+        prefix = self._owner_prefix(owner)
+        where = "(SELECT transaction_id FROM entries WHERE substr(account_id, 1, ?) = ?)"
+        return self._read_transactions(where, (len(prefix), prefix))
+
+    def _read_transactions(self, touching: str, args: tuple[object, ...]) -> list[Transaction]:
+        entry_filter = f"WHERE transaction_id IN {touching}" if touching else ""
+        tx_filter = f"WHERE id IN {touching}" if touching else ""
         entries: dict[int, list[Entry]] = {}
         for transaction_id, account, amount in self._conn.execute(
-            "SELECT transaction_id, account_id, amount FROM entries ORDER BY id"
+            f"SELECT transaction_id, account_id, amount FROM entries {entry_filter} ORDER BY id", args
         ):
             entries.setdefault(int(transaction_id), []).append(Entry(str(account), int(amount)))
         return [
             Transaction(
                 int(i), int(at), str(memo), None if cause is None else str(cause), tuple(entries.get(int(i), []))
             )
-            for i, at, memo, cause in self._conn.execute("SELECT id, at_us, memo, cause FROM transactions ORDER BY id")
+            for i, at, memo, cause in self._conn.execute(
+                f"SELECT id, at_us, memo, cause FROM transactions {tx_filter} ORDER BY id", args
+            )
         ]
 
     def verify(self) -> list[str]:

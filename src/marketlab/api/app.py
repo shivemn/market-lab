@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -426,6 +427,9 @@ TAKEN_OR_WRONG = "That username is taken, or the secret is wrong."
 
 def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, require_login: bool = False) -> FastAPI:
     app = FastAPI(title="Market Lab", version="0.9.0")
+    # The replies are long runs of near-identical JSON events; compressed they are about a tenth of the size,
+    # which is most of the wait on a slow link or a small server.
+    app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
     store = RunStore()
     ledger = Ledger(db_path, shared_across_threads=True)
     sessions: OrderedDict[str, PracticeSession] = OrderedDict()

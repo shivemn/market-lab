@@ -33,8 +33,10 @@ from marketlab.ledger import (
     OrderRefused,
     Statement,
     build_statement,
+    cash_account,
     locked_account,
     reserved_account,
+    shares_account,
 )
 from marketlab.news import NewsItem, affects, news_change, schedule
 from marketlab.rules import benchmarks as run_benchmarks
@@ -481,9 +483,10 @@ class PracticeWorld:
     def portfolio(self) -> WorldPortfolio:
         holdings: dict[str, Holding] = {}
         orders: list[OpenOrder] = []
+        mine = self.ledger.owner_balances(self.owner)  # one query, not two for each of the twelve stocks
         for symbol, sim in self.world.sims.items():
             holdings[symbol] = Holding(
-                self.ledger.shares(self.owner, symbol), self.ledger.balance(locked_account(self.owner, symbol))
+                mine.get(shares_account(self.owner, symbol), 0), mine.get(locked_account(self.owner, symbol), 0)
             )
             resting = {o.order_id: o for o in sim.exchange.book.all_orders() if o.account_id == self.owner}
             for order_id in self.gateways[symbol].open_order_ids():
@@ -495,8 +498,8 @@ class PracticeWorld:
                 )
                 orders.append(OpenOrder(symbol, order_id, sent.side, sent.quantity, left, sent.limit_price))
         return WorldPortfolio(
-            cash=self.ledger.cash(self.owner),
-            reserved=self.ledger.balance(reserved_account(self.owner)),
+            cash=mine[cash_account(self.owner)],
+            reserved=mine.get(reserved_account(self.owner), 0),
             holdings=holdings,
             open_orders=tuple(orders),
         )

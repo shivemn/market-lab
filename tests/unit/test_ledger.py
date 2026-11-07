@@ -247,3 +247,13 @@ def test_an_old_database_gets_the_history_table_when_opened(tmp_path: Path) -> N
     ledger.record_day("shi", 3, finished=True, closes={"A": 100}, summary={"result": 5, "fills": []})
     assert ledger.last_closes("shi") == {"A": 100}
     assert ledger.days("shi")[0]["result"] == 5
+
+
+def test_one_owners_transactions_and_balances_leave_out_everyone_elses(ledger: Ledger) -> None:
+    ledger.open_account("ann")
+    ledger.open_account("bob")
+    mine = ledger.owner_transactions("ann")
+    assert [t.memo for t in mine] == ["Starting virtual money"]
+    assert all(any(e.account.startswith("user:ann:") for e in t.entries) for t in mine)
+    assert len(ledger.transactions()) == 2
+    assert ledger.owner_balances("ann") == {cash_account("ann"): STARTING_CASH}

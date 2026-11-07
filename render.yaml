@@ -6,6 +6,7 @@ services:
     name: market-lab
     runtime: docker
     plan: free
+    region: singapore # keep this the same as your Neon region (see docs/DEPLOY.md, Speed)
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL

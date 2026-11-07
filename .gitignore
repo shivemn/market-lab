@@ -16,10 +16,3 @@ runs/
 *.db
 *.db-wal
 *.db-shm
-.neon
-node_modules/
-.env.local
-
-.env.local
-node_modules/
-.neon

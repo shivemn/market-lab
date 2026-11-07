@@ -9,14 +9,33 @@ restart. So the accounts and history go in a free PostgreSQL database on Neon, a
 free PostgreSQL is deleted 30 days after it is created, so it is a poor fit.)
 
 1. **Push the repository to GitHub.**
-2. **Make the database.** On neon.com sign up, create a project, and pick the region nearest your visitors. On the
+2. **Make the database.** On neon.com sign up, create a project, and pick the region nearest your visitors, and **remember which one**: the app
+   and the database must be in the same region (see "Speed" below). On the
    project's Connect panel, **turn connection pooling off** and copy the connection string (it starts with
    `postgresql://` and contains a password). Use the direct one, not the pooled one: the app takes a PostgreSQL
    advisory lock when it migrates and uses prepared statements, and a transaction pooler does not support those.
 3. **Make the web service.** On render.com choose **New > Blueprint** and pick the repository. `render.yaml` and the
    `Dockerfile` do the rest. Render asks for the value of `DATABASE_URL`: paste the Neon string there. It lives only in
    Render's settings, never in the repository.
+   `render.yaml` names the region (`region: singapore`). If you used another Neon region, change that line to the
+   matching Render region (oregon, ohio, virginia, frankfurt, singapore) before you create the service.
 4. When the build finishes you get an address like `https://market-lab.onrender.com`. Put it at the top of the README.
+
+### Speed
+
+Every second of play the browser asks the server to move the day on, and the server reads and writes the database.
+Each database call is a network round trip, so what matters is how many calls a tick makes and how far apart the
+app and the database are.
+
+- A tick makes 4 database calls (it was 31 before the statement was read for the owner only, and the portfolio in one
+  query). Placing an order makes 13 (it was 40). A test fails if a tick goes over 6 calls.
+- Replies are compressed (gzip): a reply at 10x is 9.5 KB on the wire instead of 97 KB.
+- The browser holds 60 frames a second at 10x and 30x with its CPU slowed four times (measured with headless Chromium).
+- Keep Render and Neon in one region. Across an ocean a round trip is 150 ms or more, and even 4 calls cost 0.6 s of
+  every 1 s tick; with 31 it would be several seconds. A region cannot be changed on an existing Render service: create
+  it again with the right region.
+- The free Render instance has a small share of a CPU. It is enough for one person at 10x, but 100x makes every reply
+  ten times larger, so use 30x or less on the free plan.
 
 Things to know about the free plans (as of November 2026; check the current terms, they change):
 - **Render web service:** sleeps after about 15 minutes without visits and takes about a minute to wake. Open it once

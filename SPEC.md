@@ -484,3 +484,9 @@ connection string, not the pooled one: the migration takes a session-level advis
 neither of which survives a transaction pooler. Free databases pause when idle, so `PgConnection` reopens a dead connection
 and retries a statement once when no transaction is open; inside a transaction the error goes up and the ledger rolls back.
 A test kills the server's connections and shows both cases, and fails if the reconnect is removed.
+30. **Speed on a hosted database:** a tick must cost a handful of database calls, because on Neon each is a network trip.
+`Ledger.owner_transactions(owner)` (the statement reads only the transactions that touch the owner, not the whole
+ledger) and `Ledger.owner_balances(owner)` (all of an owner's balances in one query; `PracticeWorld.portfolio` and the
+statement's stored balance use it) took a tick from 31 calls to 4 and an order from 40 to 13. Replies are gzip-compressed
+(`GZipMiddleware`, over 1000 bytes). Tests count the calls (at most 6 a tick) and check the `content-encoding`. The browser
+side was measured at 60 fps with a 4x CPU slowdown, so it was left alone. `render.yaml` sets `region: singapore` to match Neon.
