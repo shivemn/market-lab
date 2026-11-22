@@ -306,6 +306,11 @@ below. Next, in order and only if the project continues: an honest backtester th
 costs, then real announcements with an event study, then a plain-language app for learners. The plan and decisions
 are in [SPEC.md](SPEC.md).
 
+**In progress: the Instrument redesign** (branch `redesign/instrument`), five weeks. Week 1 (done): new tokens and
+fonts, the three looks, shared UI pieces in `web/src/ui/` and a status bar with the market clock on every screen. Still
+to come: the Practice desk layout with an equity curve and a tape, price paths shown as a Galton board, a slowly turning
+3D order-flow network, live motion tied to real trades, then polish and release.
+
 ## Phase 3: a market of twelve companies
 
 ![The Practice tab with the index table showing how each company moved it](docs/img/market-index.png)
@@ -328,7 +333,11 @@ dearer-shares-count-more, and a fourth, **Shifty 7**, which mimics the Sensex: t
 
 ![The Practice tab: chart, order ticket, price ladder, your orders and what each trade cost](docs/img/practice-light.png)
 
-The page has a light and a dark look, chosen at the top right (the first visit follows your computer's setting).
+The page has three looks, chosen at the top right: **Instrument light** (the default), **Instrument dark**, and
+**Classic**, the look from before the redesign. Instrument is a quiet lab-instrument style: warm paper, hairline panels,
+small monospace labels (JetBrains Mono), one serif figure per screen (Source Serif 4) and Manrope for sentences. The
+first visit follows your computer's light or dark setting. All three share one layout and show exactly the same numbers;
+only the drawing changes (`web/src/theme.css` for the tokens, `look.css` for Classic, `instrument.css` for Instrument).
 
 ![The statement: every trade, each charge line, and the result after charges](docs/img/statement-view.png)
 
@@ -388,6 +397,7 @@ src/marketlab/sim/      random price process and the simulated traders
 src/marketlab/api/      the web server: REST and a WebSocket that plays a day back
 src/marketlab/cli.py    the `marketlab` command (run, show, replay, serve)
 web/                    the React page (TypeScript, Vite)
+web/src/ui/             shared pieces: Panel, Kpi, Delta, LivePill, StatusBar
 benchmarks/             the speed benchmark
 docs/                   architecture diagrams, benchmark results, screenshots
 tests/unit/             hand-calculated examples
