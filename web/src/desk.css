@@ -287,3 +287,11 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .weighting { max-width: 640px; margin-bottom: 12px; }
 .index-stats { margin: 0 0 12px; }
 @media (max-width: 600px) { .index-picker { grid-template-columns: 1fr; } }
+
+/* Phones: nothing may be wider than the screen. The chart starts at a guessed width before it measures its box, so it
+   must never be the thing that sets the box's width. */
+.chartbox { min-width: 0; }
+.chartbox svg { max-width: 100%; }
+.desk-grid > *, .desk-main > *, .panel.chart, .activity, .ticker { min-width: 0; max-width: 100%; }
+@media (max-width: 600px) { .ptitle { flex-wrap: wrap; } .ptitle .controls { flex-wrap: wrap; } }
+.tabline { overflow-x: auto; scrollbar-width: none; } .tabline button { flex: none; white-space: nowrap; }
