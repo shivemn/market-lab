@@ -1,7 +1,80 @@
-/* Two looks, light and dark, set from the same tokens, so every screen follows. The light one is the default. */
+/*
+ * Three looks from one set of token names, so every screen follows whichever is chosen:
+ *   light   - Instrument, light (the default): warm paper, hairline panels, monospace labels, one serif figure
+ *   dark    - Instrument, dark
+ *   classic - the look Market Lab had before the redesign (Manrope, soft cards); its extra rules live in look.css
+ * The Instrument rules live in instrument.css. Layout is shared by all three (styles.css and desk.css).
+ */
 
 :root,
 :root[data-theme="light"] {
+  --ground: #f5f4ef;
+  --wash: transparent;
+  --surface: #fbfaf6;
+  --surface-2: #f2f0ea;
+  --line: #d9d5c9;
+  --row-line: #e8e5db;
+  --ink: #18181b;
+  --muted: #5d5c57;
+  --buy: #2c51cf;
+  --buy-deep: #2343b3;
+  --buy-soft: #e3e8fa;
+  --sell: #c8642b;
+  --sell-soft: #f7e3d5;
+  --sell-text: #8f4214;
+  --you: #e9a23b;
+  --shade: #eeece5;
+  --trade-fill: #cfe3d8;
+  --up: #11744a;
+  --up-soft: #ddeee5;
+  --down: #b3322a;
+  --down-soft: #f6e0dd;
+  --price-line: #2c51cf;
+  --on-buy: #ffffff;
+  --on-sell: #ffffff;
+  --radius: 4px;
+  --radius-sm: 3px;
+  --shadow: none;
+  --shadow-sm: none;
+  --font-ui: "Manrope", system-ui, "Segoe UI", sans-serif;
+  --font-head: "Manrope", system-ui, "Segoe UI", sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-hero: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --paper: none;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --ground: #0e0f11;
+  --wash: transparent;
+  --surface: #141619;
+  --surface-2: #101215;
+  --line: #2c2f34;
+  --row-line: #202328;
+  --ink: #ecebe5;
+  --muted: #9f9d95;
+  --buy: #86a0ff;
+  --buy-deep: #6f8cf5;
+  --buy-soft: #1a2240;
+  --sell: #f19a63;
+  --sell-soft: #36231a;
+  --sell-text: #f5b48b;
+  --you: #f2bd5c;
+  --shade: #1b1e22;
+  --trade-fill: #1c3b30;
+  --up: #4cc58f;
+  --up-soft: #12301f;
+  --down: #f27a6d;
+  --down-soft: #3a1714;
+  --price-line: #86a0ff;
+  --on-buy: #0b1022;
+  --on-sell: #1a1006;
+  color-scheme: dark;
+}
+
+/* Classic: the pre-redesign light look, kept as an option. */
+:root[data-theme="classic"] {
   --ground: #f1f3f9;
   --wash: rgba(67, 56, 202, 0.09);
   --surface: #ffffff;
@@ -30,41 +103,10 @@
   --radius-sm: 9px;
   --shadow: 0 1px 2px rgba(18, 21, 46, 0.05), 0 8px 24px -12px rgba(18, 21, 46, 0.12);
   --shadow-sm: 0 1px 2px rgba(18, 21, 46, 0.10);
-  --font-ui: "Manrope", system-ui, "Segoe UI", sans-serif;
-  --font-head: "Manrope", system-ui, "Segoe UI", sans-serif;
   --font-num: "Manrope", system-ui, "Segoe UI", sans-serif;
-  --paper: none;
+  --font-mono: "Manrope", system-ui, "Segoe UI", sans-serif;
+  --font-hero: "Manrope", system-ui, "Segoe UI", sans-serif;
   color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  --ground: #0a0d1c;
-  --wash: rgba(99, 120, 255, 0.14);
-  --surface: #121733;
-  --surface-2: #0e1228;
-  --line: #242c52;
-  --row-line: #1a2142;
-  --ink: #e9ecfb;
-  --muted: #98a1c8;
-  --buy: #6f8dff;
-  --buy-deep: #5470f0;
-  --buy-soft: #1a2552;
-  --sell: #ffa24d;
-  --sell-soft: #3a2511;
-  --sell-text: #ffbd7e;
-  --you: #ffc53d;
-  --shade: #1a2145;
-  --trade-fill: #1c3b33;
-  --up: #34d399;
-  --up-soft: #0f3326;
-  --down: #fb7185;
-  --down-soft: #3d1420;
-  --price-line: #9db1ff;
-  --on-buy: #08102e;
-  --on-sell: #1a1305;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -14px rgba(0, 0, 0, 0.6);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  color-scheme: dark;
 }
 
 body {
