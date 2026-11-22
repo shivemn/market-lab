@@ -9,6 +9,7 @@ import { PracticeView } from "./components/PracticeView";
 import { HowToRead, JustHappened, StartPanel } from "./components/Side";
 import { fold } from "./lib/market";
 import { narrateLog } from "./lib/narrate";
+import { clock } from "./lib/format";
 import { biggestMove, endTimes, lastEndAtOrBefore, priceSeries, tradeSeries } from "./lib/series";
 import { COMPANIES } from "./lib/companies";
 import { useRun } from "./lib/useRun";
@@ -116,7 +117,11 @@ export default function App() {
     <>
     {practice}
     <div className="app">
-      <Header state={state} summary={summary} />
+      <Header
+        state={state}
+        summary={summary}
+        clock={summary ? clock(nowUs, (summary.config.pre_open_seconds ?? 60) * 1_000_000, duration) : null}
+      />
       {tabs}
       <label className="company-pick">
         Company to watch
