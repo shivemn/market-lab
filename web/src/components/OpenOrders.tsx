@@ -1,5 +1,6 @@
 import { rupees } from "../lib/format";
 import type { WorldOpenOrder } from "../lib/world";
+import { Panel } from "../ui";
 
 export function OpenOrders({
   orders,
@@ -9,11 +10,7 @@ export function OpenOrders({
   onCancel: (symbol: string, orderId: number) => void;
 }) {
   return (
-    <section className="panel" aria-labelledby="open-title">
-      <div className="ptitle">
-        <h2 id="open-title">Your waiting orders</h2>
-        <span className="count">{orders.length}</span>
-      </div>
+    <Panel id="open-title" title="Your waiting orders" meta={<span className="count">{orders.length}</span>}>
       {orders.length === 0 ? (
         <p className="muted small">None. An order that cannot trade yet waits here, and you can cancel it.</p>
       ) : (
@@ -32,6 +29,6 @@ export function OpenOrders({
           ))}
         </ul>
       )}
-    </section>
+    </Panel>
   );
 }
