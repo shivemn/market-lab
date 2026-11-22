@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
+/** Instrument light, Instrument dark, and Classic (the look before the redesign). */
 export const THEMES = [
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
+  { id: "classic", label: "Classic" },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
@@ -13,7 +15,7 @@ const KEY = "marketlab-theme";
 export function savedTheme(): ThemeId {
   try {
     const value = window.localStorage.getItem(KEY);
-    if (value === "light" || value === "dark") return value;
+    if (value === "light" || value === "dark" || value === "classic") return value;
     if (value === "terminal") return "dark";
     if (value !== null) return "light";
   } catch {
