@@ -6,6 +6,7 @@ import "./styles.css";
 import "./theme.css";
 import "./desk.css";
 import "./look.css";
+import "./instrument.css";
 import "./login.css";
 import { applyTheme, savedTheme } from "./lib/theme";
 

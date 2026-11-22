@@ -1,0 +1,129 @@
+/*
+ * The Instrument look (light and dark): warm paper, hairline panels, small monospace labels in capitals, one serif
+ * figure per screen. Every rule is scoped to "not Classic", so the Classic look (look.css) is untouched. Loaded last.
+ * Layout is not changed here; only how things are drawn.
+ */
+
+:root:not([data-theme="classic"]) body { background-image: none; }
+:root:not([data-theme="classic"]) .app { padding-top: 16px; gap: 12px; }
+:root:not([data-theme="classic"]) .card, :root:not([data-theme="classic"]) .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; }
+:root:not([data-theme="classic"]) .panel { padding: 12px 14px; }
+:root:not([data-theme="classic"]) .card { padding: 16px 18px; }
+:root:not([data-theme="classic"]) .ptitle { border-bottom: 1px solid var(--row-line); padding-bottom: 8px; min-height: 24px; }
+:root:not([data-theme="classic"]) .ptitle h2, :root:not([data-theme="classic"]) .panel h2 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+:root:not([data-theme="classic"]) .card h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+:root:not([data-theme="classic"]) .big-title { font-family: var(--font-hero); font-weight: 600; letter-spacing: -0.01em; }
+:root:not([data-theme="classic"]) .count { font-family: var(--font-mono); border-radius: 2px; }
+
+:root:not([data-theme="classic"]) .top { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; padding: 8px 14px; min-height: 52px; gap: 8px 24px; }
+:root:not([data-theme="classic"]) .brand-name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .brand .small { font-size: 11.5px; }
+:root:not([data-theme="classic"]) .quote .symbol { font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+:root:not([data-theme="classic"]) .quote .price { font-family: var(--font-hero); font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin: 0; line-height: 1.05; }
+:root:not([data-theme="classic"]) .change { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+:root:not([data-theme="classic"]) .change.up { color: var(--up); }
+:root:not([data-theme="classic"]) .change.down { color: var(--down); }
+:root:not([data-theme="classic"]) .sb-clock { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+:root:not([data-theme="classic"]) .sb-clock .tz { color: var(--muted); }
+:root:not([data-theme="classic"]) .chip { height: 24px; padding: 0 10px; border-radius: 3px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+:root:not([data-theme="classic"]) .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+:root:not([data-theme="classic"]) .chip-open { border-color: var(--up); color: var(--up); }
+:root:not([data-theme="classic"]) .chip-open::before { background: var(--up); animation: ml-pulse 1.6s ease-in-out infinite; }
+:root:not([data-theme="classic"]) .chip-pre_open { border-color: var(--you); }
+:root:not([data-theme="classic"]) .chip-pre_open::before { background: var(--you); }
+:root:not([data-theme="classic"]) .chip-closed::before { background: var(--down); }
+
+:root:not([data-theme="classic"]) .themes { display: flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: transparent; padding: 0; gap: 0; }
+:root:not([data-theme="classic"]) .themes button { border: 0; border-radius: 0; background: transparent; color: var(--muted); min-height: 28px; padding: 0 9px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+:root:not([data-theme="classic"]) .themes button + button { border-left: 1px solid var(--line); }
+:root:not([data-theme="classic"]) .themes button.on { background: var(--shade); color: var(--ink); font-weight: 600; box-shadow: none; }
+
+:root:not([data-theme="classic"]) .tabbar { border-bottom: 1px solid var(--line); }
+:root:not([data-theme="classic"]) .tabs { display: flex; gap: 22px; padding: 0; background: none; border-radius: 0; }
+:root:not([data-theme="classic"]) .tab { min-height: 38px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; box-shadow: none; }
+:root:not([data-theme="classic"]) .tab:hover { color: var(--ink); }
+:root:not([data-theme="classic"]) .tab.on { background: transparent; color: var(--ink); border-bottom-color: var(--ink); box-shadow: none; }
+
+:root:not([data-theme="classic"]) .btn { border: 1px solid var(--line); border-radius: 3px; background: var(--surface); font-weight: 600; box-shadow: none; }
+:root:not([data-theme="classic"]) .btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+:root:not([data-theme="classic"]) .btn.primary { background: var(--buy); border-color: var(--buy); color: var(--on-buy); }
+:root:not([data-theme="classic"]) .btn.primary:hover:not(:disabled) { background: var(--buy-deep); border-color: var(--buy-deep); color: var(--on-buy); }
+:root:not([data-theme="classic"]) .btn.sellbtn { background: var(--sell); border-color: var(--sell); color: var(--on-sell); }
+:root:not([data-theme="classic"]) .btn.sellbtn:hover:not(:disabled) { color: var(--on-sell); filter: brightness(0.95); }
+:root:not([data-theme="classic"]) .field input, :root:not([data-theme="classic"]) .field select { border: 1px solid var(--line); border-radius: 3px; background: var(--surface-2); font-family: var(--font-mono); }
+:root:not([data-theme="classic"]) .field input:focus, :root:not([data-theme="classic"]) .field select:focus { border-color: var(--buy); outline: 0; box-shadow: 0 0 0 2px color-mix(in srgb, var(--buy) 30%, transparent); }
+:root:not([data-theme="classic"]) .seg { border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+:root:not([data-theme="classic"]) .seg button { border-radius: 0; }
+:root:not([data-theme="classic"]) .seg button.on { background: var(--ink); color: var(--surface); }
+:root:not([data-theme="classic"]) .seg button.buy.on { background: var(--buy); color: var(--on-buy); }
+:root:not([data-theme="classic"]) .seg button.sell.on { background: var(--sell); color: var(--on-sell); }
+:root:not([data-theme="classic"]) .seg.quiet button.on { background: var(--shade); color: var(--ink); }
+:root:not([data-theme="classic"]) .seg button + button { border-left: 1px solid var(--line); }
+:root:not([data-theme="classic"]) .chip-btn { border-radius: 3px; font-family: var(--font-mono); }
+:root:not([data-theme="classic"]) .company-pick { align-self: flex-start; }
+:root:not([data-theme="classic"]) .company-pick select { border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); padding: 8px 10px; font-family: var(--font-mono); font-size: 14px; min-width: 320px; }
+:root:not([data-theme="classic"]) .link:hover { color: var(--ink); }
+
+:root:not([data-theme="classic"]) .strip { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: none; overflow: hidden; }
+:root:not([data-theme="classic"]) .stat { border-right-color: var(--row-line); }
+:root:not([data-theme="classic"]) .stat .k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .stat .v { font-weight: 500; }
+:root:not([data-theme="classic"]) .stat .v.big { font-family: var(--font-hero); font-size: 34px; font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; }
+:root:not([data-theme="classic"]) .stat.lead { background: transparent; }
+
+:root:not([data-theme="classic"]) .tile { border: 0; border-left: 2px solid var(--row-line); border-radius: 0; background: transparent; box-shadow: none; height: 72px; }
+:root:not([data-theme="classic"]) .tile:hover { background: var(--shade); border-color: var(--row-line); }
+:root:not([data-theme="classic"]) .tile.sel, :root:not([data-theme="classic"]) .tile[aria-pressed="true"] { border-left-color: var(--buy); background: var(--buy-soft); box-shadow: none; }
+:root:not([data-theme="classic"]) .tile .t1 b { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+:root:not([data-theme="classic"]) .tile .num { font-size: 13px; font-weight: 500; }
+:root:not([data-theme="classic"]) .sector-head h3 { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; }
+:root:not([data-theme="classic"]) .sector-head .chg { font-size: 12px; font-weight: 500; }
+
+:root:not([data-theme="classic"]) table.tape th, :root:not([data-theme="classic"]) table.statement th, :root:not([data-theme="classic"]) .who thead th { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; }
+:root:not([data-theme="classic"]) table.tape th { border-bottom-color: var(--line); }
+:root:not([data-theme="classic"]) .row.head { border-bottom: 1px solid var(--ink); }
+:root:not([data-theme="classic"]) .lhead { font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; border-bottom-color: var(--line); }
+:root:not([data-theme="classic"]) .who thead th { border-bottom: 1px solid var(--line); }
+:root:not([data-theme="classic"]) .statement tfoot th, :root:not([data-theme="classic"]) .statement tfoot td { border-top: 1px solid var(--ink); }
+:root:not([data-theme="classic"]) dl.mini .total { border-bottom: 1px solid var(--ink); }
+:root:not([data-theme="classic"]) .tabline { border-bottom: 1px solid var(--row-line); }
+:root:not([data-theme="classic"]) .tabline button { font-weight: 600; border-bottom-width: 2px; border-radius: 0; }
+:root:not([data-theme="classic"]) .tabline button.on { color: var(--ink); border-bottom-color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+:root:not([data-theme="classic"]) .log li .t, :root:not([data-theme="classic"]) .happened li .t, :root:not([data-theme="classic"]) .newslist .t { font-family: var(--font-mono); font-size: 11.5px; }
+
+:root:not([data-theme="classic"]) .tick { font-family: var(--font-mono); font-size: 11px; }
+:root:not([data-theme="classic"]) .tick.big { font-size: 12.5px; }
+:root:not([data-theme="classic"]) .chart-title .clock { font-family: var(--font-mono); }
+:root:not([data-theme="classic"]) .chart-stats dt, :root:not([data-theme="classic"]) .totals dt { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .chart-stats dd { font-family: var(--font-mono); font-weight: 500; }
+:root:not([data-theme="classic"]) .totals div { border-left: 1px solid var(--line); }
+:root:not([data-theme="classic"]) .totals dd { font-family: var(--font-hero); font-weight: 600; }
+:root:not([data-theme="classic"]) .index-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: none; }
+:root:not([data-theme="classic"]) .index-card.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+:root:not([data-theme="classic"]) .index-card-name { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600; }
+:root:not([data-theme="classic"]) .index-card-level { font-family: var(--font-hero); font-weight: 600; }
+
+:root:not([data-theme="classic"]) .lesson { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); font-size: 13.5px; }
+:root:not([data-theme="classic"]) .coach { border: 1px dashed var(--line); border-radius: var(--radius); background: transparent; }
+:root:not([data-theme="classic"]) .notice { background: var(--buy-soft); color: var(--ink); border: 1px solid var(--buy); border-radius: var(--radius); }
+:root:not([data-theme="classic"]) .callout, :root:not([data-theme="classic"]) .preview { background: var(--shade); border-radius: 3px; }
+:root:not([data-theme="classic"]) .ticker { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: none; }
+:root:not([data-theme="classic"]) .ticker-label { background: var(--ink); color: var(--surface); border-radius: 2px; font-family: var(--font-mono); font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; font-size: 10.5px; }
+:root:not([data-theme="classic"]) .you-tag { border-radius: 2px; font-family: var(--font-mono); }
+:root:not([data-theme="classic"]) .past-day { border-radius: 3px; background: transparent; }
+:root:not([data-theme="classic"]) .help summary { font-family: var(--font-mono); font-size: 11px; }
+:root:not([data-theme="classic"]) .help-body { border-radius: var(--radius); border-color: var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+
+:root:not([data-theme="classic"]) .daybox { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45); }
+:root:not([data-theme="classic"]) .daybox h2 { font-family: var(--font-hero); font-weight: 600; }
+
+:root:not([data-theme="classic"]) .gate { background-image: none; }
+:root:not([data-theme="classic"]) .gate-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; }
+:root:not([data-theme="classic"]) .gate-card h1 { font-family: var(--font-hero); font-weight: 600; font-size: 26px; letter-spacing: -0.01em; }
+:root:not([data-theme="classic"]) .account-chip { font-family: var(--font-mono); font-size: 11.5px; }
+:root:not([data-theme="classic"]) * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+@keyframes ml-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-theme="classic"]) .chip-open::before { animation: none; }
+}
