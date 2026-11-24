@@ -9,6 +9,9 @@ Under the page there is a small exchange with real market rules (price-time prio
 opening auction), an ordered event log that replays exactly, and a double-entry ledger in SQLite that keeps your money
 honest. All prices and people are simulated and the companies are made up. Nothing here is investment advice.
 
+**Try it live:** [market-lab-vxqj.onrender.com](https://market-lab-vxqj.onrender.com/) (free hosting: the first visit
+after a quiet spell can take about a minute to wake up).
+
 For the story of how it was built and what testing caught, read [docs/WRITEUP.md](docs/WRITEUP.md).
 
 ![The day view: a price chart with volume, the queue of waiting orders, and what just happened](docs/img/day-view.png)
@@ -307,9 +310,15 @@ costs, then real announcements with an event study, then a plain-language app fo
 are in [SPEC.md](SPEC.md).
 
 **In progress: the Instrument redesign** (branch `redesign/instrument`), five weeks. Week 1 (done): new tokens and
-fonts, the three looks, shared UI pieces in `web/src/ui/` and a status bar with the market clock on every screen. Still
-to come: the Practice desk layout with an equity curve and a tape, price paths shown as a Galton board, a slowly turning
-3D order-flow network, live motion tied to real trades, then polish and release.
+fonts, the three looks, shared UI pieces in `web/src/ui/` and a status bar with the market clock on every screen. Week 2
+(done): the Practice desk re-laid out with your account and the board in the main column and trading on the right, a
+curve of your account through the day, and a tape of the latest trades in all twelve companies. Still to come: price
+paths shown as a Galton board, a slowly turning 3D order-flow network, live motion tied to real trades, then polish and
+release.
+
+The account curve takes one point from every snapshot the server sends (every step of the clock and every order), so its
+last point is always exactly the server's "Worth now"; it is not re-derived in the browser. The tape reads each
+company's event list from the end, so it costs the same however long the day has run.
 
 ## Phase 3: a market of twelve companies
 
