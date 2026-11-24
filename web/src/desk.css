@@ -295,3 +295,46 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 .desk-grid > *, .desk-main > *, .panel.chart, .activity, .ticker { min-width: 0; max-width: 100%; }
 @media (max-width: 600px) { .ptitle { flex-wrap: wrap; } .ptitle .controls { flex-wrap: wrap; } }
 .tabline { overflow-x: auto; scrollbar-width: none; } .tabline button { flex: none; white-space: nowrap; }
+
+/* ---- the Practice desk (redesign week 2): account and board inside the main column, trading on the right ---- */
+.desk-main .strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.desk-main .strip .stat { border-right: 1px solid var(--row-line); }
+.desk-main .strip .stat:last-child { border-right: 0; }
+.desk-main .strip .stat.lead { grid-column: 1 / -1; max-width: none; margin: 0; font-size: inherit; border-right: 0; border-bottom: 1px solid var(--row-line); padding-top: 12px; padding-bottom: 12px; }
+.desk-main .strip .stat .sub { white-space: normal; }  /* the intro-paragraph rule ".lead" must not narrow the account figure */
+.desk-main .strip .stat.wide .v { white-space: normal; }
+
+/* your account through the day */
+.eq-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.eq-now { font-family: var(--font-hero); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.eq-meta { font-size: 12px; color: var(--muted); font-family: var(--font-num); white-space: nowrap; }
+.eq-box svg { display: block; overflow: visible; }
+.eq-base { stroke: var(--muted); stroke-dasharray: 3 4; stroke-width: 1; }
+.eq-line { fill: none; stroke: var(--ink); stroke-width: 1.75; stroke-linejoin: round; }
+.eq-area.up { fill: var(--up); opacity: 0.09; }
+.eq-area.down { fill: var(--down); opacity: 0.09; }
+.eq-area.flat { fill: none; }
+.eq-fill { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.eq-dot { fill: var(--ink); }
+.eq-note { margin: 0; }
+
+/* the tape: the latest trades in every company, newest at the left */
+.tape-strip { display: flex; align-items: stretch; min-height: 36px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; min-width: 0; }
+.tape-label { flex: none; display: flex; align-items: center; padding: 0 12px; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 700; }
+.tape-list { list-style: none; margin: 0; padding: 0; display: flex; overflow: hidden; white-space: nowrap; min-width: 0; }
+.tape-item { flex: none; padding: 0 14px; line-height: 36px; font-size: 12.5px; border-right: 1px solid var(--row-line); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.tape-item:first-child { animation: ticker-in 900ms ease-out; }
+.tape-item.mine { background: color-mix(in srgb, var(--you) 22%, transparent); }
+.tape-item .you-tag { margin-left: 6px; }
+.tape-t { color: var(--muted); }
+.tape-move.up { color: var(--up); }
+.tape-move.down { color: var(--down); }
+.tape-move.same, .tape-move.first { color: var(--muted); }
+.tape-empty { padding: 0 12px; line-height: 36px; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .tape-item:first-child { animation: none; } }
+
+@media (max-width: 1000px) {
+  .desk-main .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .desk-main .strip .stat:nth-child(odd):not(.lead) { border-right: 0; }
+  .equity-panel { order: 1; }
+}

@@ -127,3 +127,8 @@
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-theme="classic"]) .chip-open::before { animation: none; }
 }
+
+:root:not([data-theme="classic"]) .eq-now { font-weight: 600; }
+:root:not([data-theme="classic"]) .eq-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .tape-label { font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .tape-strip { box-shadow: none; }

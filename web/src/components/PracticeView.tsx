@@ -1,7 +1,10 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
+import { myFillTimes } from "../lib/equity";
 import { tradeSeries } from "../lib/series";
+import { latestTrades } from "../lib/tape";
+import { useEquity } from "../lib/useEquity";
 import { useStatement } from "../lib/useStatement";
 import { useDays } from "../lib/useDays";
 import { useWorld } from "../lib/useWorld";
@@ -12,6 +15,7 @@ import { Activity, ActivityTab } from "./Activity";
 import { useAccount } from "./AuthGate";
 import { CompaniesPanel } from "./CompaniesPanel";
 import { DaySummary, PastDay } from "./DaySummary";
+import { EquityCurve } from "./EquityCurve";
 import { HistoryPanel } from "./HistoryPanel";
 import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
@@ -21,6 +25,7 @@ import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
 import { PriceChart } from "./PriceChart";
 import { StatementPanel } from "./StatementPanel";
+import { TapeStrip } from "./TapeStrip";
 import { WorldHeader } from "./WorldHeader";
 
 export type Practice = ReturnType<typeof useWorld>;
@@ -175,6 +180,10 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
       : [snapshot.portfolio.cash, snapshot.portfolio.reserved, snapshot.total_charges, ...Object.values(snapshot.portfolio.holdings).map((h) => `${h.shares}/${h.locked}`)].join(":");
   const { statement, failed } = useStatement(snapshot?.id ?? null, stamp);
 
+  const equity = useEquity(snapshot);
+  const fills = useMemo(() => myFillTimes(events, owner), [version, owner]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tape = useMemo(() => latestTrades(events, owner, 30), [version, owner]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const day = snapshot !== null && first !== null ? worldDay(first, snapshot) : null;
   const versus =
     snapshot !== null && day !== null ? compare(day.youPercent, indexPercent(snapshot, kind), indexTitle(snapshot, kind)) : null;
@@ -222,7 +231,6 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
         <StartCard practice={{ ...world, start: startDay }} refresh={world.status} />
       ) : (
         <>
-          <AccountStrip snapshot={snapshot} first={first} kind={kind} />
           <Coach played={world.played} ordered={touched.size > 0} holding={held.length > 0} />
           {world.notice && (
             <p className="notice" role="status">
@@ -234,16 +242,17 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
               )}
             </p>
           )}
-          <MarketBoard
-            snapshot={snapshot}
-            selected={symbol}
-            onSelect={(s) => {
-              setSelected(s);
-              setPick(null);
-            }}
-          />
           <div className="desk-grid">
             <div className="desk-main">
+              <AccountStrip snapshot={snapshot} first={first} kind={kind} />
+              <MarketBoard
+                snapshot={snapshot}
+                selected={symbol}
+                onSelect={(s) => {
+                  setSelected(s);
+                  setPick(null);
+                }}
+              />
               <label className="toggle">
                 <input type="checkbox" checked={world.pauseOnFill} onChange={(e) => world.setPauseOnFill(e.target.checked)} />
                 Pause the day when one of my orders trades
@@ -271,6 +280,7 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
                 onAuction={() => undefined}
                 onBiggest={() => undefined}
               />
+              <EquityCurve series={equity} start={first.worth} openAt={snapshot.open_at} closeAt={snapshot.close_at} fills={fills} />
               <Activity
                 mine={mine}
                 events={events[symbol] ?? []}
@@ -309,6 +319,7 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
               <OpenOrders orders={snapshot.portfolio.open_orders} onCancel={(s, id) => void world.cancel(s, id)} />
             </aside>
           </div>
+          <TapeStrip items={tape} openAt={snapshot.open_at} closeAt={snapshot.close_at} />
           {world.error && (
             <p className="error" role="alert">
               {world.error}
