@@ -62,6 +62,7 @@ from marketlab.codec import event_to_dict
 from marketlab.core import Instrument, Side, TimeInForce
 from marketlab.costs import PLANS
 from marketlab.ledger import Ledger, OrderRefused, build_statement
+from marketlab.paths import price_paths
 from marketlab.projection import MarketState
 from marketlab.session import Portfolio, PracticeSession
 from marketlab.sim import SimConfig, SimulationResult, run_simulation
@@ -843,6 +844,32 @@ def create_app(web_dir: Path | None = None, db_path: str = ":memory:", *, requir
                 "charges_basis_points": statement.charges_basis_points,
                 "worth": statement.money + sum(q * prices[s] for s, q in listed),
                 "problems": statement.check() + pw.ledger.verify(),
+            }
+
+    @app.get("/api/worlds/{world_id}/paths")
+    def world_paths(
+        world_id: str,
+        symbol: str = Query(..., pattern=r"^[A-Z]{1,16}$"),
+        runs: int = Query(200, ge=10, le=500),
+        steps: int = Query(40, ge=5, le=120),
+        owner: str | None = Depends(owner_of),
+    ) -> dict[str, Any]:
+        """Possible paths from the last trade to the close, for the Galton board. Seeded, so the same moment gives the
+        same paths. They start from the last traded price, never from the hidden fair value."""
+        with lock:
+            pw = find_world(world_id, owner)
+            try:
+                fan = price_paths(pw.world, symbol, runs=runs, steps=steps)
+            except KeyError as missing:
+                raise HTTPException(404, f"There is no company called {symbol}.") from missing
+            return {
+                "symbol": fan.symbol,
+                "start": fan.start,
+                "times": fan.times,
+                "paths": fan.paths,
+                "volatility": fan.volatility,
+                "jump_rate": fan.jump_rate,
+                "jump_sd": fan.jump_sd,
             }
 
     @app.post("/api/worlds/{world_id}/advance")

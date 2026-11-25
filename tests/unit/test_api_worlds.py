@@ -278,3 +278,18 @@ def test_big_replies_are_compressed(client: TestClient) -> None:
     )
     assert response.headers.get("content-encoding") == "gzip"
     assert response.json()["now"] > 0
+
+
+def test_price_paths_for_the_galton_board(client: TestClient) -> None:
+    world = start(client)
+    wid = world["id"]
+    client.post(f"/api/worlds/{wid}/advance", json={"seconds": 10, "pause_on_fill": False})
+    first = client.get(f"/api/worlds/{wid}/paths", params={"symbol": "UDHAAR", "runs": 50, "steps": 10})
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert len(body["paths"]) == 50 and all(len(p) == 11 for p in body["paths"])
+    assert all(p[0] == body["start"] for p in body["paths"])
+    again = client.get(f"/api/worlds/{wid}/paths", params={"symbol": "UDHAAR", "runs": 50, "steps": 10}).json()
+    assert again["paths"] == body["paths"]
+    assert client.get(f"/api/worlds/{wid}/paths", params={"symbol": "NOPE"}).status_code == 404
+    assert client.get(f"/api/worlds/{wid}/paths", params={"symbol": "UDHAAR", "runs": 5000}).status_code == 422

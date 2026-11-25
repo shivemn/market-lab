@@ -195,3 +195,17 @@ export const cancelWorldOrder = (id: string, symbol: string, orderId: number) =>
   call<WorldUpdate>("DELETE", `/api/worlds/${id}/orders/${symbol}/${orderId}`);
 export const endWorld = (id: string) => call<{ ended: boolean }>("DELETE", `/api/worlds/${id}`);
 export const getWorldStatement = (id: string) => call<WorldStatement>("GET", `/api/worlds/${id}/statement`);
+
+export interface WorldPaths {
+  symbol: string;
+  start: number;
+  times: number[];
+  paths: number[][];
+  volatility: number;
+  jump_rate: number;
+  jump_sd: number;
+}
+
+/** Possible paths from the last trade to the close for one company (for the Galton board). Same moment, same paths. */
+export const getWorldPaths = (id: string, symbol: string, runs = 200, steps = 40) =>
+  call<WorldPaths>("GET", `/api/worlds/${id}/paths?symbol=${encodeURIComponent(symbol)}&runs=${runs}&steps=${steps}`);
