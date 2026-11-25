@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { percentSigned, rupees, signed } from "../lib/format";
 import type { WorldSnapshot } from "../lib/world";
 
@@ -5,10 +6,14 @@ interface Props {
   snapshot: WorldSnapshot;
   selected: string;
   onSelect: (symbol: string) => void;
+  /** A tiny line of each company's price so far (see lib/spark.ts), drawn along the foot of its tile. */
+  lines?: Record<string, { d: string; refY: number }>;
 }
 
 /** All twelve companies, grouped by sector. Pick one to trade it. */
-export function MarketBoard({ snapshot, selected, onSelect }: Props) {
+export function MarketBoard({ snapshot, selected, onSelect, lines }: Props) {
+  // each price flashes once, green or red, when it changes (the key on the number restarts the animation)
+  const seen = useRef<Record<string, { price: number; dir: "up" | "down" | "" }>>({});
   return (
     <section className="board" aria-label="Companies">
       {snapshot.sectors.map((sector) => {
@@ -30,6 +35,11 @@ export function MarketBoard({ snapshot, selected, onSelect }: Props) {
                 const hold = snapshot.portfolio.holdings[c.symbol];
                 const held = hold.shares + hold.locked;
                 const today = snapshot.positions[c.symbol]?.today ?? 0;
+                const was = seen.current[c.symbol];
+                if (was === undefined) seen.current[c.symbol] = { price, dir: "" };
+                else if (was.price !== price) seen.current[c.symbol] = { price, dir: price > was.price ? "up" : "down" };
+                const flash = seen.current[c.symbol].dir;
+                const line = lines?.[c.symbol];
                 return (
                   <button
                     key={c.symbol}
@@ -41,7 +51,9 @@ export function MarketBoard({ snapshot, selected, onSelect }: Props) {
                   >
                     <span className="t1">
                       <b>{c.symbol}</b>
-                      <span className="num">{rupees(price)}</span>
+                      <span key={price} className={`num${flash ? ` flash-${flash}` : ""}`}>
+                        {rupees(price)}
+                      </span>
                     </span>
                     <span className="t2">
                       <span className="nm">{c.name}</span>
@@ -50,6 +62,12 @@ export function MarketBoard({ snapshot, selected, onSelect }: Props) {
                       </span>
                     </span>
                     <span className="t3">{held > 0 ? `You hold ${held} · ${signed(today)} today` : ""}</span>
+                    {line && line.d && (
+                      <svg className={`spark ${move}`} viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+                        <line x1="0" x2="100" y1={line.refY} y2={line.refY} />
+                        <path d={line.d} />
+                      </svg>
+                    )}
                   </button>
                 );
               })}
