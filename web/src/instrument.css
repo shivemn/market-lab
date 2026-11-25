@@ -135,3 +135,5 @@
 :root:not([data-theme="classic"]) .paths-stats dt { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
 :root:not([data-theme="classic"]) .paths-stats dd { font-weight: 500; }
 :root:not([data-theme="classic"]) .flow-key { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .block.sell { color: var(--on-sell); }
+:root:not([data-theme="classic"]) .index-table .bar2 { opacity: 0.12; }
