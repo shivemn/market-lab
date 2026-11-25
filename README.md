@@ -148,6 +148,7 @@ flowchart LR
         gate["Sign-in page<br/>username + secret, or guest"]
         clock["The clock<br/>asks for time every second"]
         fold["fold(events)<br/>chart, queue, ladder, P&L"]
+        motion["Animated panels<br/>Galton board, 3D trader network<br/>one 30 fps clock, off under reduced motion"]
     end
     subgraph router["Router: only with marketlab cluster"]
         route["Sends each person to the same worker<br/>(by the name at the front of their token)<br/>relays the live WebSocket"]
@@ -155,6 +156,7 @@ flowchart LR
     subgraph server["Server: FastAPI, one lock per process"]
         authn["Auth<br/>/api/auth/enter, guest, me, logout<br/>scrypt hash, attempt limits"]
         api["REST<br/>/api/worlds, /api/runs,<br/>/api/accounts/{owner}/days<br/>(your own account only)"]
+        paths["/api/worlds/{id}/paths<br/>seeded runs to the close<br/>from the last trade"]
     end
     subgraph world["Practice world, in memory"]
         sims["12 simulations<br/>one per company, one shared clock"]
@@ -176,6 +178,9 @@ flowchart LR
     sims --> gws --> books
     api --> days
     api -- "new events and a snapshot" --> fold --> ui
+    paths --> sims
+    paths -- "200 runs" --> motion --> ui
+    fold --> motion
 ```
 
 **The event log is the truth.** Each company's exchange only appends events (order accepted, trade, session changed).
@@ -186,6 +191,21 @@ runs the same fold as the server, which is how the page and the server can never
 `speed` simulated seconds (it was four times a second until the load test showed that cost too much). The twelve companies move in 0.2-second steps on one clock, so a fill in any
 company can pause the whole day at the exact moment it happens (switchable). This also makes pause, speed and
 scrubbing free, and the same seed always gives the same day.
+
+**What could happen next, without cheating.** The Galton board on the Practice screen asks
+`/api/worlds/{id}/paths` for 200 runs of one company's price from now to the close (`paths.py`). Each run uses the
+simulator's own process (geometric Brownian motion with rare jumps) and the company's whole volatility: its share of the
+market move, its sector's move and its own. Runs start from the last traded price, never from the hidden fair value the
+simulated traders react to, so the panel gives you no edge over them; news that has not come out yet is not in them.
+They are seeded from the day, the company and the moment, so asking again at the same moment gives the same runs. A
+test checks the end prices against the formula: the mean log-return is minus half the variance, and the variance is the
+diffusion part plus the jumps.
+
+**Motion only for real events.** Every moving thing on the page stands for something that happened: a falling ball is one
+simulated run, a dot crossing the trader network is one trade (from seller to buyer), a flashing price is a price that
+just changed, and the pulse on the chart is the latest trade while the day is running. The network turns slowly only to
+show depth. All of it runs on one shared clock at about 30 frames a second, stops when the tab is hidden or the panel is
+paused, and shows a still, finished frame when the computer asks for reduced motion.
 
 **News and comparison rules.** `news.py` holds a box of about thirty made-up headlines, each marked *major* (usually
 matters) or *minor* (usually does not), with an obvious direction where there is one. Each day draws six at random and
@@ -309,12 +329,18 @@ below. Next, in order and only if the project continues: an honest backtester th
 costs, then real announcements with an event study, then a plain-language app for learners. The plan and decisions
 are in [SPEC.md](SPEC.md).
 
-**In progress: the Instrument redesign** (branch `redesign/instrument`), five weeks. Week 1 (done): new tokens and
+**The Instrument redesign** (branch `redesign/instrument`), five weeks, now finished. Week 1 (done): new tokens and
 fonts, the three looks, shared UI pieces in `web/src/ui/` and a status bar with the market clock on every screen. Week 2
 (done): the Practice desk re-laid out with your account and the board in the main column and trading on the right, a
-curve of your account through the day, and a tape of the latest trades in all twelve companies. Still to come: price
-paths shown as a Galton board, a slowly turning 3D order-flow network, live motion tied to real trades, then polish and
-release.
+curve of your account through the day, and a tape of the latest trades in all twelve companies. Week 3 (done): price
+paths from the server shown as a Galton board. Week 4 (done): a slowly turning 3D network of who trades with whom, with
+a dot for every new trade, and motion tied to real events (price flashes, sparklines on the board, a pulse on the latest
+trade). Week 5 (done): accessibility pass (axe: no WCAG A or AA problems on any screen in either Instrument look), new
+screenshots, docs.
+
+![Where a company could close: 200 simulated runs dropping into the bins of their end prices](docs/img/galton.png)
+
+![Who trades with whom: market makers in the middle, value traders around them, casual traders outside](docs/img/flow-network.png)
 
 The account curve takes one point from every snapshot the server sends (every step of the clock and every order), so its
 last point is always exactly the server's "Worth now"; it is not re-derived in the browser. The tape reads each
@@ -401,6 +427,7 @@ src/marketlab/codec.py, log.py     events as canonical text, the log file with i
 src/marketlab/projection.py        the market rebuilt from events alone
 src/marketlab/session.py           a practice session: one day, one account, your orders
 src/marketlab/costs.py             Indian delivery-trade charges, exact
+src/marketlab/paths.py             possible prices to the close, for the Galton board
 src/marketlab/ledger/   practice accounts and the double-entry ledger (SQLite), the order gateway, and statements
 src/marketlab/sim/      random price process and the simulated traders
 src/marketlab/api/      the web server: REST and a WebSocket that plays a day back

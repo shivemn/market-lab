@@ -20,6 +20,7 @@ flowchart LR
     subgraph server["Server: FastAPI"]
         rest["/api/sessions<br/>one lock per session"]
         runs["/api/runs and /ws/runs<br/>finished days"]
+        paths["/api/worlds/{id}/paths<br/>seeded runs to the close"]
     end
     subgraph session["Practice session: Python"]
         sim["Simulation<br/>fair value + traders"]
@@ -38,6 +39,7 @@ flowchart LR
     gw -- "postings" --> led
     rest -. "new events, portfolio" .-> fold
     runs -. "replay" .-> fold
+    paths -- "uses the simulator's process,<br/>from the last trade" --> sim
     classDef money stroke:#0b7f6f,stroke-width:2px
     class gw,led,ticket money
 ```
@@ -55,7 +57,7 @@ flowchart TB
     proj["<b>projection</b><br/>replays events into the book, trades, session"]
     sim["<b>sim</b><br/>seeded traders and price process"]
     api["<b>api</b><br/>FastAPI: start a run, stream events"]
-    web["<b>web</b><br/>React page: price chart, queue, auction"]
+    web["<b>web</b><br/>React page: price chart, queue, auction,<br/>Galton board, 3D trader network"]
     cli["<b>cli</b><br/>run, show, replay, serve"]
 
     core --> events
