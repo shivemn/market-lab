@@ -385,16 +385,14 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 
 @keyframes ml-flash-up { from { background: color-mix(in srgb, var(--up) 28%, transparent); } to { background: transparent; } }
 @keyframes ml-flash-down { from { background: color-mix(in srgb, var(--down) 26%, transparent); } to { background: transparent; } }
-@keyframes ml-flash { from { background: color-mix(in srgb, var(--buy) 16%, transparent); } to { background: transparent; } }
 @keyframes ml-now-pulse { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.8); opacity: 0; } }
 @keyframes ml-tape-in { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.num.flash-up { animation: ml-flash-up 700ms ease-out; border-radius: 2px; }
-.num.flash-down { animation: ml-flash-down 700ms ease-out; border-radius: 2px; }
-.stat .v { animation: ml-flash 600ms ease-out; border-radius: 2px; }
-.now-pulse { fill: none; stroke: var(--you); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ml-now-pulse 1.4s ease-out infinite; pointer-events: none; }
-.tape-item:first-child { animation: ml-tape-in 450ms ease-out, ticker-in 900ms ease-out; }
+.num.flash-up { animation: ml-flash-up 450ms ease-out; border-radius: 2px; }
+.num.flash-down { animation: ml-flash-down 450ms ease-out; border-radius: 2px; }
+.now-pulse { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--you); border-radius: 50%; box-sizing: border-box; pointer-events: none; animation: ml-now-pulse 2s ease-out infinite; will-change: transform, opacity; }
+.tape-item:first-child { animation: ml-tape-in 450ms ease-out; }
 @media (prefers-reduced-motion: reduce) {
-  .num.flash-up, .num.flash-down, .stat .v, .tape-item:first-child { animation: none; }
+  .num.flash-up, .num.flash-down, .tape-item:first-child { animation: none; }
   .now-pulse { display: none; }
 }
 
@@ -403,3 +401,6 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
   .flow-panel { order: 1; }
   .paths-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* animated panels repaint only inside themselves */
+.paths-box, .flow-box { contain: layout paint; }
