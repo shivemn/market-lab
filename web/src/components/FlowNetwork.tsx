@@ -28,7 +28,8 @@ const band = (z: number) => (z > 110 ? 0 : z > -110 ? 1 : 2);
 export function FlowNetwork({ events, version, symbol, owner, playing }: Props) {
   const flow = useMemo(() => buildFlow(events, owner), [version, symbol, owner]); // eslint-disable-line react-hooks/exhaustive-deps
   const [paused, setPaused] = useState(false);
-  const { elapsed, still } = useFrameClock(playing && !paused && flow.nodes.length > 0, symbol);
+  const box = useRef<HTMLDivElement>(null);
+  const { elapsed, still } = useFrameClock(playing && !paused && flow.nodes.length > 0, symbol, box, 20);
   // dots: only for trades that arrive while this panel is on screen, never for the day's history
   const seen = useRef<{ symbol: string; seq: number; started: Map<number, number> }>({ symbol: "", seq: Number.MAX_SAFE_INTEGER, started: new Map() });
   const lastSeq = flow.trades.length > 0 ? flow.trades[flow.trades.length - 1].seq : 0;
@@ -105,7 +106,7 @@ export function FlowNetwork({ events, version, symbol, owner, playing }: Props) 
       {flow.nodes.length === 0 ? (
         <p className="muted small">No trades yet. Once the market opens, every trader who buys or sells appears here.</p>
       ) : (
-        <div className="flow-box">
+        <div className="flow-box" ref={box}>
           <svg viewBox="0 0 1000 310" role="img" aria-label={label}>
             {bands.map((b, i) => (
               <g key={i} opacity={[0.32, 0.66, 1][i]}>

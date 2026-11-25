@@ -15,9 +15,7 @@ export function Kpi({ label, value, note, tone, big, className }: Props) {
   return (
     <div className={`stat${className ? ` ${className}` : ""}`}>
       <span className="k">{label}</span>
-      <span key={typeof value === "string" ? value : undefined} className={`v${big ? " big" : ""}${tone ? ` ${tone}` : ""}`}>
-        {value}
-      </span>
+      <span className={`v${big ? " big" : ""}${tone ? ` ${tone}` : ""}`}>{value}</span>
       {note !== undefined && <span className="sub">{note}</span>}
     </div>
   );

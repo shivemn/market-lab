@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BINS, binCentre, binLeft, boardFrame, buildBoard, CX, DX, FLOOR, H, PEG_TOP, ROW_GAP, ROWS, W, BAR_MAX } from "../lib/galton";
 import { clock, money, rupees } from "../lib/format";
 import { getWorldPaths, type WorldPaths } from "../lib/world";
@@ -45,7 +45,8 @@ export function PricePaths({ worldId, symbol, openAt, closeAt }: Props) {
     () => (fan === null || fan.symbol !== symbol ? null : buildBoard(fan.paths, fan.start, fan.times[0] + fan.start)),
     [fan, symbol],
   );
-  const { elapsed, still } = useFrameClock(board !== null && !paused, board);
+  const box = useRef<HTMLDivElement>(null);
+  const { elapsed, still } = useFrameClock(board !== null && !paused, board, box, 30, board === null ? 0 : board.total + 300);
   const done = board !== null && (still || elapsed >= board.total);
   const frame = board === null ? null : boardFrame(board, still ? Number.POSITIVE_INFINITY : elapsed);
   const step = board === null ? 0 : BAR_MAX / board.maxCount;
@@ -95,7 +96,7 @@ export function PricePaths({ worldId, symbol, openAt, closeAt }: Props) {
               <dd>{frame.landed === 0 ? "—" : `${Math.round((frame.above / frame.landed) * 100)}%`}</dd>
             </div>
           </dl>
-          <div className="paths-box">
+          <div className="paths-box" ref={box}>
             <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
               <path className="g-walls" d={WALLS} />
               {frame.counts.map((n, bin) =>
