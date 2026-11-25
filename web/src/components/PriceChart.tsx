@@ -70,6 +70,11 @@ export function PriceChart(p: Props) {
     ticks.push({ t: p.preOpenUs + ((hour * 60 - 555) / 375) * (duration - p.preOpenUs), label: `${hour}:00` });
   }
   ticks.push({ t: duration, label: "15:30" });
+  // on a narrow chart, drop a label that would sit on top of the one before it (15:30 always stays)
+  for (let i = ticks.length - 2; i >= 0; i--) {
+    const next = ticks[i + 1];
+    if (next && x(next.t) - x(ticks[i].t) < 40) ticks.splice(i === ticks.length - 2 ? i : i + 1, 1);
+  }
 
   const now = past.length > 0 ? past[past.length - 1] : null;
   const cursorX = x(p.nowUs);
@@ -295,6 +300,7 @@ export function PriceChart(p: Props) {
           <line x1={cursorX} x2={cursorX} y1={TOP} y2={VOLUME_BOTTOM} stroke="var(--buy)" strokeWidth={3} />
           {now && (
             <>
+              {p.status === "playing" && <circle key={now.t} className="now-pulse" cx={cursorX} cy={y(now.price)} r={7} />}
               <circle cx={cursorX} cy={y(now.price)} r={7} fill="var(--you)" stroke="var(--ink)" strokeWidth={2} />
               <g transform={`translate(${pillLeft ? cursorX - 14 : cursorX + 14}, ${y(now.price)})`}>
                 <rect x={pillLeft ? -92 : 0} y={-14} width={92} height={28} rx={14} fill="var(--ink)" />
