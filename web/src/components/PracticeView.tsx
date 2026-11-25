@@ -3,6 +3,7 @@ import { ActivityItem, myActivity } from "../lib/activity";
 import { fold } from "../lib/market";
 import { myFillTimes } from "../lib/equity";
 import { tradeSeries } from "../lib/series";
+import { sparkLine } from "../lib/spark";
 import { latestTrades } from "../lib/tape";
 import { useEquity } from "../lib/useEquity";
 import { useStatement } from "../lib/useStatement";
@@ -16,6 +17,7 @@ import { useAccount } from "./AuthGate";
 import { CompaniesPanel } from "./CompaniesPanel";
 import { DaySummary, PastDay } from "./DaySummary";
 import { EquityCurve } from "./EquityCurve";
+import { FlowNetwork } from "./FlowNetwork";
 import { HistoryPanel } from "./HistoryPanel";
 import { IndexPanel } from "./IndexPanel";
 import { Ladder } from "./Ladder";
@@ -24,6 +26,7 @@ import { headlineOf, NewsPanel, NewsTicker } from "./NewsPanel";
 import { OpenOrders } from "./OpenOrders";
 import { OrderTicket } from "./OrderTicket";
 import { PriceChart } from "./PriceChart";
+import { PricePaths } from "./PricePaths";
 import { StatementPanel } from "./StatementPanel";
 import { TapeStrip } from "./TapeStrip";
 import { WorldHeader } from "./WorldHeader";
@@ -183,6 +186,12 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
   const equity = useEquity(snapshot);
   const fills = useMemo(() => myFillTimes(events, owner), [version, owner]); // eslint-disable-line react-hooks/exhaustive-deps
   const tape = useMemo(() => latestTrades(events, owner, 30), [version, owner]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => {
+    const out: Record<string, { d: string; refY: number }> = {};
+    if (snapshot === null) return out;
+    for (const c of snapshot.companies) out[c.symbol] = sparkLine(events[c.symbol] ?? [], snapshot.close_at, c.instrument.reference_price, snapshot.now);
+    return out;
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const day = snapshot !== null && first !== null ? worldDay(first, snapshot) : null;
   const versus =
@@ -248,6 +257,7 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
               <MarketBoard
                 snapshot={snapshot}
                 selected={symbol}
+                lines={lines}
                 onSelect={(s) => {
                   setSelected(s);
                   setPick(null);
@@ -280,7 +290,11 @@ export function PracticeView({ tabs, active, world }: { tabs: ReactNode; active:
                 onAuction={() => undefined}
                 onBiggest={() => undefined}
               />
-              <EquityCurve series={equity} start={first.worth} openAt={snapshot.open_at} closeAt={snapshot.close_at} fills={fills} />
+              <div className="analysis-row">
+                <EquityCurve series={equity} start={first.worth} openAt={snapshot.open_at} closeAt={snapshot.close_at} fills={fills} />
+                <PricePaths worldId={snapshot.id} symbol={symbol} openAt={snapshot.open_at} closeAt={snapshot.close_at} />
+              </div>
+              <FlowNetwork events={events[symbol] ?? []} version={version} symbol={symbol} owner={owner} playing={world.status === "playing"} />
               <Activity
                 mine={mine}
                 events={events[symbol] ?? []}

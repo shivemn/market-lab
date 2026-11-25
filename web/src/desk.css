@@ -336,5 +336,70 @@ table.tape tr.ghost td { border-bottom-color: var(--row-line); color: transparen
 @media (max-width: 1000px) {
   .desk-main .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .desk-main .strip .stat:nth-child(odd):not(.lead) { border-right: 0; }
-  .equity-panel { order: 1; }
+}
+
+/* ---- redesign weeks 3 and 4: the analysis row, the Galton board, the 3D network, and motion tied to real events ---- */
+.analysis-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.paths-controls { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-end; white-space: nowrap; }
+.paths-panel .ptitle, .flow-panel .ptitle { flex-wrap: wrap; row-gap: 6px; }
+.paths-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; margin: 0; }
+.paths-stats dt { font-size: 12px; color: var(--muted); }
+.paths-stats dd { margin: 2px 0 0; font-family: var(--font-num); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.paths-box svg { display: block; width: 100%; height: auto; overflow: visible; margin-bottom: 14px; }
+.paths-note, .paths-wait { margin: 0; }
+.g-walls { stroke: var(--row-line); stroke-width: 1; fill: none; }
+.g-bar { fill: var(--buy); opacity: 0.25; }
+.g-bar.glow { fill: var(--sell); opacity: 0.45; }
+.g-now { stroke: var(--ink); stroke-dasharray: 3 3; stroke-width: 1; }
+.g-pegs { fill: var(--muted); opacity: 0.45; }
+.g-balls { fill: var(--buy); }
+.g-newest { fill: var(--sell); }
+.g-floor { stroke: var(--line); stroke-width: 1; }
+
+.flow-key { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--muted); }
+.flow-key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.k-mm { background: var(--buy); }
+.k-value { border: 1.5px solid var(--buy); box-sizing: border-box; }
+.k-noise { background: var(--muted); opacity: 0.55; }
+.k-you { background: var(--sell); }
+.flow-box svg { display: block; width: 100%; height: auto; }
+.f-light { stroke: var(--muted); stroke-opacity: 0.45; stroke-width: 1; fill: none; }
+.f-heavy { stroke: var(--buy); stroke-opacity: 0.55; stroke-width: 2.75; fill: none; }
+.f-mine { stroke: var(--sell); stroke-width: 2.25; fill: none; }
+.f-noise, .f-other { fill: var(--muted); fill-opacity: 0.55; }
+.f-value { fill: var(--surface); stroke: var(--buy); stroke-width: 1.75; }
+.f-mm { fill: var(--buy); }
+.f-you { fill: var(--sell); }
+.f-dot { fill: var(--ink); }
+.f-mydot { fill: var(--sell); stroke: var(--surface); stroke-width: 1; }
+.f-label.you { fill: var(--sell-text); font-weight: 700; }
+
+/* the board: a tiny line of each price so far, and a one-off flash when a price changes */
+.tile { position: relative; }
+.tile .spark { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 14px; width: calc(100% - 20px); pointer-events: none; opacity: 0.8; }
+.tile .spark line { stroke: var(--row-line); stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.tile .spark path { fill: none; stroke: var(--muted); stroke-width: 1.25; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.tile .spark.up path { stroke: var(--up); }
+.tile .spark.down path { stroke: var(--down); }
+.tile .t3 { position: relative; z-index: 1; }
+
+@keyframes ml-flash-up { from { background: color-mix(in srgb, var(--up) 28%, transparent); } to { background: transparent; } }
+@keyframes ml-flash-down { from { background: color-mix(in srgb, var(--down) 26%, transparent); } to { background: transparent; } }
+@keyframes ml-flash { from { background: color-mix(in srgb, var(--buy) 16%, transparent); } to { background: transparent; } }
+@keyframes ml-now-pulse { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.8); opacity: 0; } }
+@keyframes ml-tape-in { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.num.flash-up { animation: ml-flash-up 700ms ease-out; border-radius: 2px; }
+.num.flash-down { animation: ml-flash-down 700ms ease-out; border-radius: 2px; }
+.stat .v { animation: ml-flash 600ms ease-out; border-radius: 2px; }
+.now-pulse { fill: none; stroke: var(--you); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ml-now-pulse 1.4s ease-out infinite; pointer-events: none; }
+.tape-item:first-child { animation: ml-tape-in 450ms ease-out, ticker-in 900ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .num.flash-up, .num.flash-down, .stat .v, .tape-item:first-child { animation: none; }
+  .now-pulse { display: none; }
+}
+
+@media (max-width: 1000px) {
+  .analysis-row { grid-template-columns: minmax(0, 1fr); order: 1; }
+  .flow-panel { order: 1; }
+  .paths-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

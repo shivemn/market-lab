@@ -4,6 +4,7 @@ import { Header } from "./components/Header";
 import { Queue } from "./components/Queue";
 import { AuctionView } from "./components/AuctionView";
 import { PriceChart } from "./components/PriceChart";
+import { FlowNetwork } from "./components/FlowNetwork";
 import { IndicesView } from "./components/IndicesView";
 import { PracticeView } from "./components/PracticeView";
 import { HowToRead, JustHappened, StartPanel } from "./components/Side";
@@ -178,6 +179,7 @@ export default function App() {
         <Queue state={liveState} followed={followed} onFollow={setFollowed} symbol={summary?.instrument.symbol} />
         <JustHappened lines={lines} slow={run.status === "playing"} preOpenUs={(summary?.config.pre_open_seconds ?? 60) * 1_000_000} closeUs={duration} />
       </main>
+      <FlowNetwork events={events} version={version} symbol={summary?.instrument.symbol ?? company} owner="" playing={run.status === "playing"} />
         </>
       )}
       <footer className="foot">

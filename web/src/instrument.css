@@ -132,3 +132,6 @@
 :root:not([data-theme="classic"]) .eq-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 :root:not([data-theme="classic"]) .tape-label { font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
 :root:not([data-theme="classic"]) .tape-strip { box-shadow: none; }
+:root:not([data-theme="classic"]) .paths-stats dt { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+:root:not([data-theme="classic"]) .paths-stats dd { font-weight: 500; }
+:root:not([data-theme="classic"]) .flow-key { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; }

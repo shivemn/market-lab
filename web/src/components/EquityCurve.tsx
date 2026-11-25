@@ -74,9 +74,11 @@ export function EquityCurve({ series, start, openAt, closeAt, fills }: Props) {
           <text className="tick" x={left + 2} y={base - 6}>
             start {rupees(start)}
           </text>
-          <text className="tick" x={left} y={H - 6}>
-            9:00
-          </text>
+          {x(openAt) - left >= 64 && (
+            <text className="tick" x={left} y={H - 6}>
+              9:00
+            </text>
+          )}
           <text className="tick" x={x(openAt)} y={H - 6} textAnchor="middle">
             9:15
           </text>
